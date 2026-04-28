@@ -20,6 +20,7 @@ import {
   type SyncErrorItem,
   validateFormPayload,
 } from '@/services/sync';
+import { randomUuid } from '@/lib/randomUuid';
 import { useAuthStore } from '@/store/useAuthStore';
 import { REQUIRED_FIELDS, type FormValues } from '@/types/formFields';
 
@@ -83,7 +84,7 @@ export const FormularioPage = () => {
   const [idUsuario, setIdUsuario] = useState('');
   const [fotos, setFotos] = useState<Array<{ nombre_archivo: string; data: string }>>([]);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [formId, setFormId] = useState(() => crypto.randomUUID());
+  const [formId, setFormId] = useState(() => randomUuid());
   const [pendientes, setPendientes] = useState(0);
   const [erroresSync, setErroresSync] = useState(0);
   const [ultimosErrores, setUltimosErrores] = useState<SyncErrorItem[]>([]);
@@ -315,7 +316,7 @@ export const FormularioPage = () => {
       }
       reset(defaults);
       setFotos([]);
-      setFormId(crypto.randomUUID());
+      setFormId(randomUuid());
       await refreshPendientes();
     } catch {
       setBanner('No se pudo guardar el borrador local. Reintentá.');

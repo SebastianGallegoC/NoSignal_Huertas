@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 
+import { randomUuid } from '@/lib/randomUuid';
+
 interface FormState {
   id_formulario: string;
   pasoActual: number;
@@ -17,7 +19,7 @@ interface FormState {
 }
 
 export const useFormStore = create<FormState>((set) => ({
-  id_formulario: crypto.randomUUID(),
+  id_formulario: randomUuid(),
   pasoActual: 1,
   datosPrincipales: {},
   fotos: [],
@@ -41,7 +43,7 @@ export const useFormStore = create<FormState>((set) => ({
 
   resetearFormulario: () =>
     set({
-      id_formulario: crypto.randomUUID(),
+      id_formulario: randomUuid(),
       pasoActual: 1,
       datosPrincipales: {},
       fotos: [],

@@ -17,7 +17,8 @@ export const FormFieldRow = ({ name, register, error }: FormFieldRowProps) => {
   const kind = inputKindForField(name);
   const label = fieldLabel(name);
   const datalistId = `options-${name}`;
-  const searchableSelectClass = `${inputClass} pr-9`;
+  // Oculta flechas/indicadores nativos del <input list> (Chromium muestra uno propio + el nuestro).
+  const searchableSelectClass = `${inputClass} pr-9 appearance-none [&::-webkit-calendar-picker-indicator]:hidden [&::-webkit-list-button]:hidden`;
 
   if (kind === 'textarea') {
     return (

@@ -121,6 +121,7 @@ export const FormularioPage = () => {
 
   const {
     register,
+    control,
     handleSubmit,
     reset,
     setValue,
@@ -580,7 +581,16 @@ export const FormularioPage = () => {
           </div>
         ) : null}
 
-        <form className="flex flex-col gap-4" onSubmit={handleSubmit(onValid)}>
+        <form
+          className="flex flex-col gap-4"
+          onSubmit={(e) => {
+            const ae = document.activeElement;
+            if (ae instanceof HTMLElement && e.currentTarget.contains(ae)) {
+              ae.blur();
+            }
+            void handleSubmit(onValid)(e);
+          }}
+        >
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900">Usuario del registro</h2>
             <p className="text-xs text-slate-500">
@@ -677,6 +687,7 @@ export const FormularioPage = () => {
                     key={field}
                     name={field}
                     register={register}
+                    control={control}
                     error={errors[field]?.message as string | undefined}
                   />
                 ))}

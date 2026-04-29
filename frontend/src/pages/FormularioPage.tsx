@@ -507,8 +507,15 @@ export const FormularioPage = () => {
             {fotos.length ? (
               <ul className="mt-3 space-y-2 text-sm text-slate-700">
                 {fotos.map((foto, index) => (
-                  <li key={`${foto.nombre_archivo}-${index}`} className="flex items-center justify-between gap-2">
-                    <span className="truncate">{foto.nombre_archivo}</span>
+                  <li key={`${foto.nombre_archivo}-${index}`} className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <img
+                        src={foto.data}
+                        alt={foto.nombre_archivo}
+                        className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
+                      />
+                      <span className="truncate">{foto.nombre_archivo}</span>
+                    </div>
                     <Button type="button" variant="outline" size="sm" onClick={() => quitarFoto(index)}>
                       Quitar
                     </Button>

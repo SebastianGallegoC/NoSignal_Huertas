@@ -1,12 +1,11 @@
-# NoSignal — Traefik para acceso por IP (HTTP)
+# NoSignal — Traefik + Let's Encrypt (HTTPS)
 #
 # Antes del primer arranque en el host (Linux/macOS):
 #   mkdir -p letsencrypt
 #   touch letsencrypt/acme.json && chmod 600 letsencrypt/acme.json
 # Ver letsencrypt/README.txt
 #
-# Sin dominio público no aplica Let's Encrypt HTTP-01. Esta configuración
-# queda temporalmente en HTTP usando la IP pública del servidor.
+# Producción por dominio: nosignal.site + api.nosignal.site
 
 services:
   traefik:
@@ -19,14 +18,22 @@ services:
     tmpfs:
       - /tmp
     ports:
-      - "8080:80"
+      - "80:80"
+      - "443:443"
     command:
       - --providers.file.filename=/etc/traefik/dynamic.yml
       - --providers.file.watch=true
       - --entrypoints.web.address=:80
-      # Nota: websecure/ACME se reactivan cuando tengas dominio.
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --certificatesresolvers.le.acme.email=${ACME_EMAIL:-antoniopuentes344@gmail.com}
+      - --certificatesresolvers.le.acme.storage=/letsencrypt/acme.json
+      - --certificatesresolvers.le.acme.httpchallenge=true
+      - --certificatesresolvers.le.acme.httpchallenge.entrypoint=web
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
+      - ./letsencrypt/acme.json:/letsencrypt/acme.json
     networks:
       - nosignal-network
 
@@ -63,7 +70,7 @@ services:
       JWT_ALGORITHM: "HS256"
       JWT_EXPIRES_MINUTES: "480"
       NOSIGNAL_AUTH_USERS: '{"demo":"demo"}'
-      CORS_ORIGINS: ${CORS_ORIGINS:-http://185.202.223.66:8080}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://nosignal.site}
       DATABASE_URL: "postgresql+asyncpg://nosignal:nosignal@db:5432/nosignal"
       UPLOAD_ROOT: "uploads"
     depends_on:
@@ -86,7 +93,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ${VITE_API_URL:-}
+        VITE_API_URL: ${VITE_API_URL:-https://api.nosignal.site}
     container_name: nosignal-frontend
     restart: unless-stopped
     depends_on:

@@ -1,17 +1,19 @@
 http:
   routers:
     nosignal-api:
-      rule: PathPrefix(`/api`)
+      rule: Host(`api.nosignal.site`)
       entryPoints:
-        - web
-      priority: 100
+        - websecure
+      tls:
+        certResolver: le
       service: nosignal-api
 
     nosignal-frontend:
-      rule: PathPrefix(`/`)
+      rule: Host(`nosignal.site`)
       entryPoints:
-        - web
-      priority: 1
+        - websecure
+      tls:
+        certResolver: le
       service: nosignal-frontend
 
   services:

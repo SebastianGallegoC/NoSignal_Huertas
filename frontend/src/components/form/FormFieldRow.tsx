@@ -63,6 +63,7 @@ export const FormFieldRow = ({ name, register, error }: FormFieldRowProps) => {
   const type = kind === 'date' ? 'date' : kind === 'number' ? 'number' : 'text';
 
   const isPositiveInt = name === 'estrato' || name === 'usuario_cens';
+  const isSatisfaccion = name === 'satisfaccion_1_5';
 
   return (
     <label className="flex flex-col text-sm font-medium text-slate-800">
@@ -70,8 +71,9 @@ export const FormFieldRow = ({ name, register, error }: FormFieldRowProps) => {
       <input
         className={inputClass}
         type={type}
-        min={isPositiveInt ? 1 : undefined}
-        step={type === 'number' ? (isPositiveInt ? 1 : 'any') : undefined}
+        min={isPositiveInt || isSatisfaccion ? 1 : undefined}
+        max={isSatisfaccion ? 5 : undefined}
+        step={type === 'number' ? ((isPositiveInt || isSatisfaccion) ? 1 : 'any') : undefined}
         {...register(name)}
       />
       {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}

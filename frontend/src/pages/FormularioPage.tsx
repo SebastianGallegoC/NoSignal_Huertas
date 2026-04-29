@@ -12,6 +12,12 @@ import { useOfflineSync } from '@/hooks/useOfflineSync';
 import type { OfflineForm } from '@/services/db';
 import { compressImageFile, fileToDataUrl } from '@/services/imageCompression';
 import {
+  clearFormDraft,
+  loadFormDraft,
+  saveFormDraft,
+  shouldPersistFormDraft,
+} from '@/services/formDraftStorage';
+import {
   countErrorForms,
   countPendingForms,
   enqueueForm,
@@ -79,12 +85,30 @@ const buildExternalMapUrl = (latitud: number, longitud: number): string => {
 export const FormularioPage = () => {
   useOfflineSync();
   const authUsername = useAuthStore((s) => s.username);
+  const draftUserKey = authUsername ?? '';
 
-  const { gps, cargando, error, estado, progreso, solicitarGPS } = useGPS();
-  const [idUsuario, setIdUsuario] = useState('');
-  const [fotos, setFotos] = useState<Array<{ nombre_archivo: string; data: string }>>([]);
+  const loadedDraft = useMemo(() => loadFormDraft(draftUserKey), [draftUserKey]);
+
+  const defaults = useMemo(() => {
+    return Object.fromEntries(REQUIRED_FIELDS.map((k) => [k, ''])) as FormValues;
+  }, []);
+
+  const initialFormValues = useMemo(() => {
+    if (!loadedDraft?.formValues) {
+      return defaults;
+    }
+    return { ...defaults, ...loadedDraft.formValues } as FormValues;
+  }, [defaults, loadedDraft]);
+
+  const { gps, cargando, error, estado, progreso, solicitarGPS } = useGPS({
+    restoredPosition: loadedDraft?.gps ?? null,
+  });
+  const [idUsuario, setIdUsuario] = useState(() => loadedDraft?.idUsuario ?? '');
+  const [fotos, setFotos] = useState<Array<{ nombre_archivo: string; data: string }>>(
+    () => loadedDraft?.fotos ?? [],
+  );
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [formId, setFormId] = useState(() => randomUuid());
+  const [formId, setFormId] = useState(() => loadedDraft?.formId ?? randomUuid());
   const [pendientes, setPendientes] = useState(0);
   const [erroresSync, setErroresSync] = useState(0);
   const [ultimosErrores, setUltimosErrores] = useState<SyncErrorItem[]>([]);
@@ -95,19 +119,73 @@ export const FormularioPage = () => {
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
-  const defaults = useMemo(() => {
-    return Object.fromEntries(REQUIRED_FIELDS.map((k) => [k, ''])) as FormValues;
-  }, []);
-
   const {
     register,
     handleSubmit,
     reset,
     setValue,
+    watch,
+    getValues,
     formState: { errors },
   } = useForm<FormValues>({
-    defaultValues: defaults,
+    defaultValues: initialFormValues,
   });
+
+  const formValues = watch();
+
+  const draftUserKeyRef = useRef(draftUserKey);
+  draftUserKeyRef.current = draftUserKey;
+  const defaultsRef = useRef(defaults);
+  defaultsRef.current = defaults;
+  const idUsuarioRef = useRef(idUsuario);
+  idUsuarioRef.current = idUsuario;
+  const fotosRef = useRef(fotos);
+  fotosRef.current = fotos;
+  const formIdRef = useRef(formId);
+  formIdRef.current = formId;
+  const gpsRef = useRef(gps);
+  gpsRef.current = gps;
+
+  const flushDraftToStorage = useCallback(() => {
+    const userKey = draftUserKeyRef.current;
+    const values = getValues();
+    const def = defaultsRef.current;
+    const idU = idUsuarioRef.current;
+    const f = fotosRef.current;
+    const fid = formIdRef.current;
+    const g = gpsRef.current;
+    if (!shouldPersistFormDraft(values, def, idU, f.length, g !== null)) {
+      clearFormDraft(userKey);
+      return;
+    }
+    saveFormDraft(userKey, {
+      v: 1,
+      savedAt: new Date().toISOString(),
+      formId: fid,
+      idUsuario: idU,
+      formValues: values,
+      fotos: f,
+      gps: g ? { latitud: g.latitud, longitud: g.longitud, precision: g.precision } : null,
+    });
+  }, [getValues]);
+
+  useEffect(() => {
+    return () => {
+      flushDraftToStorage();
+    };
+  }, [flushDraftToStorage]);
+
+  useEffect(() => {
+    const userKey = draftUserKey;
+    if (!shouldPersistFormDraft(formValues, defaults, idUsuario, fotos.length, gps !== null)) {
+      clearFormDraft(userKey);
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      flushDraftToStorage();
+    }, 450);
+    return () => window.clearTimeout(handle);
+  }, [formValues, defaults, draftUserKey, idUsuario, fotos, formId, gps, flushDraftToStorage]);
 
   const refreshPendientes = useCallback(async () => {
     const [pendingCount, errorCount, lastErrors] = await Promise.all([
@@ -366,6 +444,7 @@ export const FormularioPage = () => {
     setEnviando(true);
     try {
       await enqueueForm(payload);
+      clearFormDraft(draftUserKey);
       if (!navigator.onLine) {
         setBanner('Datos guardados localmente. Se sincronizarán al recuperar conexión.');
       } else {

@@ -1,10 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-interface GPSState {
+export interface GPSState {
   latitud: number;
   longitud: number;
   precision: number;
 }
+
+export type UseGPSOptions = {
+  /** Ubicación ya capturada restaurada desde borrador local (sin nuevo watchPosition). */
+  restoredPosition?: GPSState | null;
+};
 
 interface GPSHookState {
   gps: GPSState | null;
@@ -18,11 +23,12 @@ interface GPSHookState {
 const MAX_ACCURACY_METERS = 5;
 const GPS_TIMEOUT_MS = 60000;
 
-export const useGPS = (): GPSHookState => {
-  const [gps, setGps] = useState<GPSState | null>(null);
+export const useGPS = (opts?: UseGPSOptions): GPSHookState => {
+  const initial = opts?.restoredPosition ?? null;
+  const [gps, setGps] = useState<GPSState | null>(() => initial);
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [estado, setEstado] = useState<'idle' | 'buscando' | 'ok' | 'error'>('idle');
+  const [estado, setEstado] = useState<'idle' | 'buscando' | 'ok' | 'error'>(() => (initial ? 'ok' : 'idle'));
   const [progreso, setProgreso] = useState<string | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const timeoutRef = useRef<number | null>(null);

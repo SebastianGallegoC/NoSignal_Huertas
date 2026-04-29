@@ -1,0 +1,26 @@
+http:
+  routers:
+    nosignal-api:
+      rule: PathPrefix(`/api`)
+      entryPoints:
+        - web
+      priority: 100
+      service: nosignal-api
+
+    nosignal-frontend:
+      rule: PathPrefix(`/`)
+      entryPoints:
+        - web
+      priority: 1
+      service: nosignal-frontend
+
+  services:
+    nosignal-api:
+      loadBalancer:
+        servers:
+          - url: http://nosignal-backend:8000
+
+    nosignal-frontend:
+      loadBalancer:
+        servers:
+          - url: http://nosignal-frontend:80

@@ -21,14 +21,12 @@ services:
     ports:
       - "8080:80"
     command:
-      - --providers.docker=true
-      - --providers.docker.endpoint=unix:///run/docker.sock
-      - --providers.docker.exposedbydefault=false
-      - --providers.docker.network=nosignal-network
+      - --providers.file.filename=/etc/traefik/dynamic.yml
+      - --providers.file.watch=true
       - --entrypoints.web.address=:80
       # Nota: websecure/ACME se reactivan cuando tengas dominio.
     volumes:
-      - /run/docker.sock:/run/docker.sock:ro
+      - ./traefik/dynamic.yml:/etc/traefik/dynamic.yml:ro
     networks:
       - nosignal-network
 

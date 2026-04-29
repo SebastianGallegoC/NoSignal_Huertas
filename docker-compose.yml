@@ -22,12 +22,13 @@ services:
       - "8080:80"
     command:
       - --providers.docker=true
+      - --providers.docker.endpoint=unix:///run/docker.sock
       - --providers.docker.exposedbydefault=false
       - --providers.docker.network=nosignal-network
       - --entrypoints.web.address=:80
       # Nota: websecure/ACME se reactivan cuando tengas dominio.
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /run/docker.sock:/run/docker.sock:ro
     networks:
       - nosignal-network
 

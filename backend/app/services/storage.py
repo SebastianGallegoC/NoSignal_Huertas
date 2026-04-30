@@ -1,12 +1,55 @@
 import base64
+import json
 import os
 from datetime import datetime
 from io import BytesIO
+from pathlib import Path
 
 from PIL import Image
 
 from app.core.config import settings
 from app.schemas.form_payload import PhotoPayload
+
+
+def normalize_stored_foto_paths(raw: object) -> list[str]:
+    """Convierte el JSON de `forms.fotos` en lista de rutas (str). Acepta list o string JSON."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(raw, list):
+        return []
+    return [str(p) for p in raw if p]
+
+
+def validated_photo_path(stored: str) -> Path | None:
+    """Ruta absoluta del archivo si existe y queda bajo `upload_root`; si no, None."""
+    try:
+        root = Path(settings.upload_root).resolve()
+    except OSError:
+        return None
+    try:
+        p = Path(stored)
+        candidate = p.resolve() if p.is_absolute() else (root / p).resolve()
+    except OSError:
+        return None
+    try:
+        candidate.relative_to(root)
+    except ValueError:
+        return None
+    if not candidate.is_file():
+        return None
+    return candidate
+
+
+def media_type_for_image(path: Path) -> str:
+    suf = path.suffix.lower()
+    if suf == ".webp":
+        return "image/webp"
+    return "image/jpeg"
 
 
 def save_photos(id_usuario: str, id_formulario: str, fotos: list[PhotoPayload], fecha_hora: datetime) -> list[str]:

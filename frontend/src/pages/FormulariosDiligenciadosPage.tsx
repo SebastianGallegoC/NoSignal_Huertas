@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { FormularioRespuestaReadOnly, type FormularioSnapshot } from '@/components/form/FormularioRespuestaReadOnly';
@@ -47,23 +47,96 @@ function mergeForms(server: FormReadItem[], local: HistorialForm[]): DisplayRow[
   });
 }
 
-function mapServerFotos(raw: unknown[]): FormularioSnapshot['fotos'] {
-  return raw.map((p, i) => {
+function mapServerFotos(formId: string, raw: unknown): FormularioSnapshot['fotos'] {
+  const list: unknown[] = Array.isArray(raw)
+    ? raw
+    : typeof raw === 'string'
+      ? (() => {
+          try {
+            const j = JSON.parse(raw) as unknown;
+            return Array.isArray(j) ? j : [];
+          } catch {
+            return [];
+          }
+        })()
+      : [];
+  return list.map((p, i) => {
     if (typeof p === 'string') {
       const base = p.split(/[/\\]/).pop() || `foto_${i + 1}.jpg`;
-      return { nombre_archivo: base, path: p };
+      return { nombre_archivo: base, path: p, serverFormId: formId, serverIndex: i };
     }
-    return { nombre_archivo: `foto_${i + 1}`, path: String(p) };
+    return { nombre_archivo: `foto_${i + 1}`, path: String(p), serverFormId: formId, serverIndex: i };
   });
+}
+
+/** Para filtrar y mostrar: envío exitoso (este equipo) → `fecha_envio`; si no, `fecha_hora` del payload (servidor o local), nunca `created_at` del API. */
+function getFechaReferenciaEnvio(row: DisplayRow): number {
+  const h = row.historial;
+  const s = row.server;
+  if (h?.fecha_envio) {
+    return Date.parse(h.fecha_envio);
+  }
+  if (s?.fecha_hora) {
+    return Date.parse(s.fecha_hora);
+  }
+  if (h?.fecha_hora) {
+    return Date.parse(h.fecha_hora);
+  }
+  return NaN;
+}
+
+function parseFiltroDiaInicio(isoDay: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) {
+    return NaN;
+  }
+  const [y, m, d] = isoDay.split('-').map(Number);
+  return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+}
+
+function parseFiltroDiaFin(isoDay: string): number {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDay)) {
+    return NaN;
+  }
+  const [y, m, d] = isoDay.split('-').map(Number);
+  return new Date(y, m - 1, d, 23, 59, 59, 999).getTime();
 }
 
 export const FormulariosDiligenciadosPage = () => {
   const [rows, setRows] = useState<DisplayRow[]>([]);
+  const [filtroDesde, setFiltroDesde] = useState('');
+  const [filtroHasta, setFiltroHasta] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailSnapshot, setDetailSnapshot] = useState<FormularioSnapshot | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
+
+  const rowsFiltrados = useMemo(() => {
+    if (!filtroDesde.trim() && !filtroHasta.trim()) {
+      return rows;
+    }
+    const tDesde = filtroDesde.trim() ? parseFiltroDiaInicio(filtroDesde.trim()) : NaN;
+    const tHasta = filtroHasta.trim() ? parseFiltroDiaFin(filtroHasta.trim()) : NaN;
+    if (filtroDesde.trim() && Number.isNaN(tDesde)) {
+      return rows;
+    }
+    if (filtroHasta.trim() && Number.isNaN(tHasta)) {
+      return rows;
+    }
+    return rows.filter((row) => {
+      const ts = getFechaReferenciaEnvio(row);
+      if (Number.isNaN(ts)) {
+        return false;
+      }
+      if (!Number.isNaN(tDesde) && ts < tDesde) {
+        return false;
+      }
+      if (!Number.isNaN(tHasta) && ts > tHasta) {
+        return false;
+      }
+      return true;
+    });
+  }, [rows, filtroDesde, filtroHasta]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,6 +165,16 @@ export const FormulariosDiligenciadosPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!selectedId) {
+      return;
+    }
+    if (!rowsFiltrados.some((r) => r.id_formulario === selectedId)) {
+      setSelectedId(null);
+      setDetailSnapshot(null);
+    }
+  }, [rowsFiltrados, selectedId]);
+
   const selectRow = useCallback(async (row: DisplayRow) => {
     if (selectedId === row.id_formulario) {
       setSelectedId(null);
@@ -116,7 +199,7 @@ export const FormulariosDiligenciadosPage = () => {
           longitud: row.server.longitud,
           precision: row.server.precision ?? null,
         },
-        fotos: mapServerFotos(row.server.fotos ?? []),
+        fotos: mapServerFotos(row.server.id_formulario, row.server.fotos ?? []),
       });
     } else if (row.historial) {
       const h = row.historial;
@@ -136,11 +219,6 @@ export const FormulariosDiligenciadosPage = () => {
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-700">NoSignal</p>
             <h1 className="mt-2 text-3xl font-semibold">Formularios diligenciados</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Con sesión iniciada se listan los envíos guardados en el <strong>servidor</strong> (todos los
-              equipos) y se unen con el historial <strong>solo de este dispositivo</strong> (pendientes o errores
-              que aún no están en la nube).
-            </p>
           </div>
           <Link to="/inicio" className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm">
             Volver
@@ -159,18 +237,69 @@ export const FormulariosDiligenciadosPage = () => {
           </div>
         ) : null}
 
+        {rows.length > 0 ? (
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-sm">
+            <h2 className="text-sm font-semibold text-slate-900">Filtrar por fecha</h2>
+            <p className="mt-1 text-xs text-slate-600">
+              Prioridad: fecha en que la sincronización salió bien en este equipo; si no hay copia local enviada, la
+              fecha/hora que viajó en el formulario hacia el servidor (payload), no la de creación del registro en base
+              de datos.
+            </p>
+            <div className="mt-3 flex flex-wrap items-end gap-3">
+              <label className="flex flex-col text-xs font-medium text-slate-700">
+                Desde
+                <input
+                  type="date"
+                  value={filtroDesde}
+                  onChange={(e) => setFiltroDesde(e.target.value)}
+                  className="mt-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900"
+                />
+              </label>
+              <label className="flex flex-col text-xs font-medium text-slate-700">
+                Hasta
+                <input
+                  type="date"
+                  value={filtroHasta}
+                  onChange={(e) => setFiltroHasta(e.target.value)}
+                  className="mt-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm text-slate-900"
+                />
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroDesde('');
+                  setFiltroHasta('');
+                }}
+                className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-100"
+              >
+                Limpiar fechas
+              </button>
+            </div>
+            {(filtroDesde || filtroHasta) && rowsFiltrados.length !== rows.length ? (
+              <p className="mt-3 text-xs text-slate-600">
+                Mostrando <strong>{rowsFiltrados.length}</strong> de {rows.length} registros.
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
             No hay registros en el historial local ni en el servidor (con tu sesión actual).
           </div>
+        ) : rowsFiltrados.length === 0 ? (
+          <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
+            Ningún registro entra en el rango de fechas elegido. Probá ampliar el intervalo o limpiar el filtro.
+          </div>
         ) : (
           <div className="space-y-3">
-            {rows.map((row) => {
+            {rowsFiltrados.map((row) => {
               const isOpen = selectedId === row.id_formulario;
               const h = row.historial;
               const s = row.server;
               const tituloUsuario = h?.id_usuario ?? s?.id_usuario ?? '—';
-              const tituloFecha = s?.fecha_hora ?? h?.fecha_hora ?? '';
+              const refTs = getFechaReferenciaEnvio(row);
+              const tituloFechaLabel = Number.isNaN(refTs) ? '—' : new Date(refTs).toLocaleString();
               return (
                 <article
                   key={row.id_formulario}
@@ -203,19 +332,13 @@ export const FormulariosDiligenciadosPage = () => {
                       </div>
                       <p className="truncate font-mono text-xs text-slate-500">{row.id_formulario}</p>
                       <p className="font-medium text-slate-900">Usuario: {tituloUsuario}</p>
-                      <p className="text-sm text-slate-600">
-                        Fecha (referencia):{' '}
-                        {tituloFecha ? new Date(tituloFecha).toLocaleString() : '—'}
-                      </p>
+                      <p className="text-sm text-slate-600">Fecha de envío / del formulario: {tituloFechaLabel}</p>
                       {h ? (
                         <p className={`text-sm font-semibold ${estadoClass[h.estado]}`}>
                           Estado en este dispositivo: {h.estado}
                         </p>
                       ) : row.onServer ? (
                         <p className="text-sm font-semibold text-emerald-700">Sincronizado en servidor</p>
-                      ) : null}
-                      {h?.fecha_envio ? (
-                        <p className="text-sm text-slate-600">Enviado (local): {new Date(h.fecha_envio).toLocaleString()}</p>
                       ) : null}
                       {h?.ultimo_error ? <p className="text-sm text-rose-700">Error: {h.ultimo_error}</p> : null}
                     </div>

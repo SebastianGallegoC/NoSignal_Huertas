@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { FotoServidorAutenticada } from '@/components/form/FotoServidorAutenticada';
 import { FORM_SECTIONS } from '@/config/formSections';
 import { fieldLabel, inputKindForField, triOptions } from '@/config/formFieldMeta';
 import { fieldSelectOptions } from '@/config/formSelectOptions';
@@ -29,8 +30,14 @@ function displayFieldValue(key: FormFieldKey, raw: unknown): string {
 export interface FormularioSnapshot {
   datos_formulario: Record<string, unknown>;
   gps?: { latitud: number; longitud: number; precision?: number | null } | null;
-  /** `data` = data URL local; `path` = ruta en servidor (sin miniatura). */
-  fotos?: Array<{ nombre_archivo: string; data?: string; path?: string }>;
+  /** `data` = data URL local; `path` = ruta en servidor; `serverFormId` + `serverIndex` = imagen vía API autenticado. */
+  fotos?: Array<{
+    nombre_archivo: string;
+    data?: string;
+    path?: string;
+    serverFormId?: string;
+    serverIndex?: number;
+  }>;
 }
 
 const buildMapLink = (lat: number, lon: number) =>
@@ -137,9 +144,11 @@ export const FormularioRespuestaReadOnly = ({ snapshot }: { snapshot: Formulario
                     className="aspect-square w-full object-cover"
                     loading="lazy"
                   />
+                ) : f.serverFormId != null && f.serverIndex != null ? (
+                  <FotoServidorAutenticada formId={f.serverFormId} photoIndex={f.serverIndex} alt={f.nombre_archivo} />
                 ) : (
                   <div className="flex aspect-square flex-col items-center justify-center gap-1 bg-slate-100 p-2 text-center text-[11px] text-slate-600">
-                    <span className="font-medium text-slate-700">En servidor</span>
+                    <span className="font-medium text-slate-700">Sin vista previa</span>
                     <span className="break-all font-mono text-[9px] leading-tight text-slate-500">
                       {(f.path ?? f.nombre_archivo).split(/[/\\]/).pop()}
                     </span>

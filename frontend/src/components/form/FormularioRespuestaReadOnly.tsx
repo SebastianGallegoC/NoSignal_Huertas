@@ -145,7 +145,12 @@ export const FormularioRespuestaReadOnly = ({ snapshot }: { snapshot: Formulario
                     loading="lazy"
                   />
                 ) : f.serverFormId != null && f.serverIndex != null ? (
-                  <FotoServidorAutenticada formId={f.serverFormId} photoIndex={f.serverIndex} alt={f.nombre_archivo} />
+                  <FotoServidorAutenticada
+                    formId={f.serverFormId}
+                    photoIndex={f.serverIndex}
+                    alt={f.nombre_archivo}
+                    loadDeferred={f.serverIndex > 0}
+                  />
                 ) : (
                   <div className="flex aspect-square flex-col items-center justify-center gap-1 bg-slate-100 p-2 text-center text-[11px] text-slate-600">
                     <span className="font-medium text-slate-700">Sin vista previa</span>

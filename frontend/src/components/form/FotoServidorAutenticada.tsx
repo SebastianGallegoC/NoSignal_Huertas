@@ -9,14 +9,43 @@ type Props = {
   photoIndex: number;
   alt: string;
   className?: string;
+  /** Si true, el fetch arranca al acercarse al viewport (menos consultas en paralelo). */
+  loadDeferred?: boolean;
 };
 
-export const FotoServidorAutenticada = ({ formId, photoIndex, alt, className }: Props) => {
+export const FotoServidorAutenticada = ({ formId, photoIndex, alt, className, loadDeferred = false }: Props) => {
   const [src, setSrc] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = useState(!loadDeferred);
 
   useEffect(() => {
+    if (!loadDeferred) {
+      setVisible(true);
+      return;
+    }
+    const el = wrapRef.current;
+    if (!el) {
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '160px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loadDeferred]);
+
+  useEffect(() => {
+    if (!visible) {
+      return;
+    }
     let cancelled = false;
     setSrc(null);
     setFailed(false);
@@ -31,6 +60,7 @@ export const FotoServidorAutenticada = ({ formId, photoIndex, alt, className }: 
       try {
         const res = await fetch(url, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
+          cache: 'default',
         });
         if (!res.ok) {
           if (!cancelled) {
@@ -62,27 +92,32 @@ export const FotoServidorAutenticada = ({ formId, photoIndex, alt, className }: 
         blobUrlRef.current = null;
       }
     };
-  }, [formId, photoIndex]);
+  }, [visible, formId, photoIndex]);
 
-  if (failed) {
-    return (
+  const inner =
+    failed ? (
       <div
         className={`flex aspect-square flex-col items-center justify-center gap-1 bg-rose-50 p-2 text-center text-[11px] text-rose-800 ${className ?? ''}`}
       >
         No se pudo cargar la imagen
       </div>
-    );
-  }
-
-  if (!src) {
-    return (
+    ) : !src ? (
       <div
         className={`flex aspect-square animate-pulse items-center justify-center bg-slate-200 text-[11px] text-slate-500 ${className ?? ''}`}
       >
         Cargando…
       </div>
+    ) : (
+      <img src={src} alt={alt} className={`aspect-square w-full object-cover ${className ?? ''}`} loading="lazy" />
+    );
+
+  if (loadDeferred) {
+    return (
+      <div ref={wrapRef} className="h-full w-full min-h-[6rem]">
+        {inner}
+      </div>
     );
   }
 
-  return <img src={src} alt={alt} className={`aspect-square w-full object-cover ${className ?? ''}`} loading="lazy" />;
+  return inner;
 };

@@ -6,11 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
-from app.repository.forms import get_form_by_id, list_forms_for_read
+from app.repository.forms import get_form_fotos_paths_by_id, list_forms_for_read
 from app.schemas.form_payload import FormPayload
 from app.schemas.form_read import FormListResponse
 from app.services.forms import persist_form
-from app.services.storage import media_type_for_image, normalize_stored_foto_paths, validated_photo_path
+from app.services.storage import media_type_for_image, validated_photo_path
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -37,16 +37,19 @@ async def get_form_photo(
     """Sirve un archivo de foto guardado en disco (requiere el mismo token que el resto del API)."""
     if photo_index < 0:
         raise HTTPException(status_code=404, detail="photo_not_found")
-    record = await get_form_by_id(session, form_id)
-    if record is None:
+    paths = await get_form_fotos_paths_by_id(session, form_id)
+    if paths is None:
         raise HTTPException(status_code=404, detail="form_not_found")
-    paths = normalize_stored_foto_paths(record.fotos)
     if photo_index >= len(paths):
         raise HTTPException(status_code=404, detail="photo_not_found")
     abs_path = validated_photo_path(paths[photo_index])
     if abs_path is None:
         raise HTTPException(status_code=404, detail="file_missing")
-    return FileResponse(abs_path, media_type=media_type_for_image(abs_path))
+    return FileResponse(
+        abs_path,
+        media_type=media_type_for_image(abs_path),
+        headers={"Cache-Control": "private, max-age=604800"},
+    )
 
 
 @router.post("/")

@@ -14,6 +14,15 @@ async def get_form_by_id(session: AsyncSession, form_id: str) -> FormRecord | No
     return result.scalars().first()
 
 
+async def get_form_fotos_paths_by_id(session: AsyncSession, form_id: str) -> list[str] | None:
+    """Solo la columna `fotos` (evita cargar GPS, datos_formulario, etc. en cada miniatura)."""
+    result = await session.execute(select(FormRecord.fotos).where(FormRecord.id_formulario == form_id))
+    raw = result.scalar_one_or_none()
+    if raw is None:
+        return None
+    return normalize_stored_foto_paths(raw)
+
+
 async def create_form(session: AsyncSession, record: FormRecord) -> FormRecord:
     session.add(record)
     await session.commit()

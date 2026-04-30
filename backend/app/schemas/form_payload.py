@@ -1,3 +1,4 @@
+import re
 from typing import Any, Dict, List
 
 from pydantic import BaseModel, Field, field_validator
@@ -23,9 +24,16 @@ class PhotoPayload(BaseModel):
     @field_validator("data")
     @classmethod
     def validate_data(cls, value: str) -> str:
-        if not value.startswith("data:image/"):
+        """Acepta data URL estándar (cualquier casing) o JPEG en base64 plano sin prefijo."""
+        if not isinstance(value, str):
             raise ValueError("invalid_image_payload")
-        return value
+        v = value.strip()
+        if re.match(r"(?i)^data:image/", v):
+            return v
+        compact = "".join(v.split())
+        if len(compact) >= 64 and re.fullmatch(r"[A-Za-z0-9+/=]+", compact):
+            return f"data:image/jpeg;base64,{compact}"
+        raise ValueError("invalid_image_payload")
 
 
 class FormPayload(BaseModel):

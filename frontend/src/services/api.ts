@@ -4,6 +4,30 @@ import type { OfflineForm } from './db';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 
+/** Normaliza imágenes para el validador del API (prefijo data:image/…). */
+function ensureFotoDataUrl(data: string): string {
+  const s = typeof data === 'string' ? data : '';
+  const t = s.trim();
+  if (/^data:image\//i.test(t)) {
+    return t;
+  }
+  const compact = t.replace(/\s+/g, '');
+  if (compact.length >= 64 && /^[A-Za-z0-9+/]+=*$/.test(compact)) {
+    return `data:image/jpeg;base64,${compact}`;
+  }
+  return s;
+}
+
+function payloadForApi(form: OfflineForm): OfflineForm {
+  return {
+    ...form,
+    fotos: form.fotos.map((f) => ({
+      ...f,
+      data: ensureFotoDataUrl(f.data),
+    })),
+  };
+}
+
 const authHeaders = (): Record<string, string> => {
   const token = localStorage.getItem(ACCESS_TOKEN_KEY);
   if (!token) {
@@ -32,13 +56,14 @@ export const loginApi = async (username: string, password: string): Promise<Logi
 };
 
 export const postForm = async (payload: OfflineForm): Promise<Response> => {
+  const body = payloadForApi(payload);
   return fetch(`${API_BASE}/api/v1/forms`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Idempotency-Key': payload.id_formulario,
+      'Idempotency-Key': body.id_formulario,
       ...authHeaders(),
     },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
 };

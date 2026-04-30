@@ -105,7 +105,30 @@ export const syncPendingForms = async (): Promise<void> => {
     try {
       const response = await postForm(form);
       if (!response.ok) {
-        throw new Error(`HTTP_${response.status}`);
+        let detail = '';
+        try {
+          const ct = response.headers.get('content-type') ?? '';
+          if (ct.includes('application/json')) {
+            const j = (await response.json()) as { detail?: unknown };
+            if (typeof j.detail === 'string') {
+              detail = j.detail;
+            } else if (Array.isArray(j.detail)) {
+              detail = j.detail
+                .map((e: { loc?: unknown[]; msg?: string }) =>
+                  Array.isArray(e.loc) ? `${e.loc.join('.')}: ${e.msg ?? ''}` : JSON.stringify(e),
+                )
+                .join(' | ');
+            } else if (j.detail != null) {
+              detail = JSON.stringify(j.detail);
+            }
+          } else {
+            detail = await response.text();
+          }
+        } catch {
+          detail = '';
+        }
+        const trimmed = detail.replace(/\s+/g, ' ').trim().slice(0, 800);
+        throw new Error(trimmed ? `HTTP_${response.status}: ${trimmed}` : `HTTP_${response.status}`);
       }
 
       await db.historialFormularios.update(form.id_formulario, {

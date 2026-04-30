@@ -647,19 +647,7 @@ export const FormularioPage = () => {
           </div>
         ) : null}
 
-        <form
-          className="flex flex-col gap-4"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const ae = document.activeElement;
-            if (ae instanceof HTMLElement && e.currentTarget.contains(ae)) {
-              ae.blur();
-            }
-            window.setTimeout(() => {
-              void handleSubmit(onValid, onInvalid)();
-            }, 0);
-          }}
-        >
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit(onValid, onInvalid)}>
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900">Usuario del registro</h2>
             <p className="text-xs text-slate-500">

@@ -50,6 +50,12 @@ export interface SyncErrorItem {
   ultimo_error?: string;
 }
 
+export interface SyncRunResult {
+  sent: number;
+  failed: number;
+  skipped: number;
+}
+
 export const listSyncErrors = async (limit = 5): Promise<SyncErrorItem[]> => {
   const rows = await db.formularios.where('estado_sincronizacion').equals('ERROR').sortBy('fecha_hora');
   return rows
@@ -77,9 +83,10 @@ export const purgeExpiredForms = async (): Promise<void> => {
   }
 };
 
-export const syncPendingForms = async (): Promise<void> => {
+export const syncPendingForms = async (): Promise<SyncRunResult> => {
+  const result: SyncRunResult = { sent: 0, failed: 0, skipped: 0 };
   if (!navigator.onLine) {
-    return;
+    return result;
   }
 
   const pending = await db.formularios
@@ -97,6 +104,7 @@ export const syncPendingForms = async (): Promise<void> => {
         ? Date.parse(form.fecha_intento)
         : Date.parse(form.fecha_hora);
       if (!Number.isNaN(lastAttempt) && Date.now() - lastAttempt < delay) {
+        result.skipped += 1;
         continue;
       }
     }
@@ -142,7 +150,9 @@ export const syncPendingForms = async (): Promise<void> => {
         ultimo_error: undefined,
       });
       await db.formularios.delete(form.id_formulario);
+      result.sent += 1;
     } catch (error) {
+      result.failed += 1;
       const errores_sync = (form.errores_sync ?? 0) + 1;
       const message = error instanceof Error ? error.message : 'sync_error';
       await db.formularios.update(form.id_formulario, {
@@ -157,4 +167,5 @@ export const syncPendingForms = async (): Promise<void> => {
       });
     }
   }
+  return result;
 };

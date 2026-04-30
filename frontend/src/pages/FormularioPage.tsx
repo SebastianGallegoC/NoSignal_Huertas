@@ -390,8 +390,15 @@ export const FormularioPage = () => {
   const sincronizarAhora = async () => {
     setSincronizando(true);
     setBanner(null);
-    await syncPendingForms();
+    const result = await syncPendingForms();
     await refreshPendientes();
+    if (result.failed > 0) {
+      setBanner(`No se pudo sincronizar ${result.failed} formulario(s). Revisá "Errores sync".`);
+    } else if (result.sent > 0) {
+      setBanner(`Sincronización completada: ${result.sent} formulario(s) enviado(s).`);
+    } else {
+      setBanner('No hubo cambios para sincronizar en este momento.');
+    }
     setSincronizando(false);
   };
 
@@ -467,8 +474,14 @@ export const FormularioPage = () => {
       if (!navigator.onLine) {
         setBanner('Datos guardados localmente. Se sincronizarán al recuperar conexión.');
       } else {
-        await syncPendingForms();
-        setBanner('Enviado y sincronizado correctamente.');
+        const result = await syncPendingForms();
+        if (result.failed > 0) {
+          setBanner('Guardado localmente, pero falló la sincronización. Revisá "Errores sync".');
+        } else if (result.sent > 0) {
+          setBanner('Enviado y sincronizado correctamente.');
+        } else {
+          setBanner('Guardado localmente. Quedó en cola para sincronización.');
+        }
       }
       reset(defaults);
       setFotos([]);

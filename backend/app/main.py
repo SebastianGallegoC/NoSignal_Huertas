@@ -1,18 +1,32 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
 from starlette import status
 
 from .api.v1.router import api_router
 from .core.config import settings
+from .core.database import Base, engine
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Crea extensión PostGIS y tablas si no existen (el proyecto no usa Alembic aún)."""
+    from .models import FormRecord  # noqa: F401 — registra metadatos en Base
+
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS postgis"))
+        await conn.run_sync(Base.metadata.create_all)
+    yield
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title=settings.app_name)
+    app = FastAPI(title=settings.app_name, lifespan=lifespan)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,

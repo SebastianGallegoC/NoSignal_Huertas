@@ -71,6 +71,17 @@ const buildExternalMapUrl = (latitud: number, longitud: number): string => {
   return `https://www.openstreetmap.org/?mlat=${latitud}&mlon=${longitud}#map=18/${latitud}/${longitud}`;
 };
 
+const buildMapUrl = (latitud: number, longitud: number): string => {
+  const delta = 0.003;
+  const bbox = [
+    longitud - delta,
+    latitud - delta,
+    longitud + delta,
+    latitud + delta,
+  ].join(',');
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitud},${longitud}`;
+};
+
 const toSafeUserId = (raw: string): string => {
   const base = (raw || '')
     .trim()
@@ -577,10 +588,19 @@ export const FormularioPage = () => {
             </Button>
             {gps ? (
               <div className="mt-4 overflow-hidden rounded-xl border border-teal-100 bg-slate-50">
-                <div className="px-3 py-2 text-xs text-slate-700">
-                  Lat: {gps.latitud.toFixed(6)} · Lon: {gps.longitud.toFixed(6)}
+                {/* El embed de OSM incluye un pie con texto largo; se recorta visualmente. */}
+                <div className="h-48 overflow-hidden">
+                  <iframe
+                    title="Mapa de ubicación capturada"
+                    className="h-[calc(100%+36px)] w-full"
+                    src={buildMapUrl(gps.latitud, gps.longitud)}
+                    loading="lazy"
+                    style={{ marginBottom: '-36px' }}
+                  />
                 </div>
-                <div className="px-3 pb-3 text-xs text-slate-700">Precisión: {gps.precision.toFixed(1)} m</div>
+                <div className="px-3 py-2 text-xs text-slate-700">
+                  Lat: {gps.latitud.toFixed(6)} · Lon: {gps.longitud.toFixed(6)} · Precisión: {gps.precision.toFixed(1)} m
+                </div>
                 <a className="block px-3 pb-3 text-xs font-medium text-teal-800 underline" href={buildExternalMapUrl(gps.latitud, gps.longitud)} target="_blank" rel="noreferrer">
                   Abrir ubicación en OpenStreetMap
                 </a>
@@ -630,11 +650,14 @@ export const FormularioPage = () => {
         <form
           className="flex flex-col gap-4"
           onSubmit={(e) => {
+            e.preventDefault();
             const ae = document.activeElement;
             if (ae instanceof HTMLElement && e.currentTarget.contains(ae)) {
               ae.blur();
             }
-            void handleSubmit(onValid, onInvalid)(e);
+            window.setTimeout(() => {
+              void handleSubmit(onValid, onInvalid)();
+            }, 0);
           }}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">

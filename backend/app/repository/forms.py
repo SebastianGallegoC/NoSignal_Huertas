@@ -1,7 +1,11 @@
-from sqlalchemy import select
+import json
+
+from geoalchemy2.functions import ST_AsGeoJSON
+from sqlalchemy import cast, select, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.form_record import FormRecord
+from app.schemas.form_read import FormReadItem
 
 
 async def get_form_by_id(session: AsyncSession, form_id: str) -> FormRecord | None:
@@ -14,3 +18,46 @@ async def create_form(session: AsyncSession, record: FormRecord) -> FormRecord:
     await session.commit()
     await session.refresh(record)
     return record
+
+
+async def list_forms_for_read(session: AsyncSession, limit: int) -> list[FormReadItem]:
+    stmt = (
+        select(
+            FormRecord.id_formulario,
+            FormRecord.id_usuario,
+            FormRecord.fecha_hora,
+            FormRecord.datos_formulario,
+            FormRecord.fotos,
+            cast(ST_AsGeoJSON(FormRecord.gps), String).label("geojson"),
+        )
+        .order_by(FormRecord.fecha_hora.desc())
+        .limit(limit)
+    )
+    result = await session.execute(stmt)
+    items: list[FormReadItem] = []
+    for row in result.mappings():
+        geo = json.loads(row["geojson"])
+        if geo.get("type") != "Point" or not isinstance(geo.get("coordinates"), list):
+            continue
+        coords = geo["coordinates"]
+        if len(coords) < 2:
+            continue
+        lon, lat = float(coords[0]), float(coords[1])
+        fh = row["fecha_hora"]
+        fecha_iso = fh.isoformat() if hasattr(fh, "isoformat") else str(fh)
+        datos = row["datos_formulario"] if isinstance(row["datos_formulario"], dict) else {}
+        fotos_raw = row["fotos"]
+        fotos_list: list = fotos_raw if isinstance(fotos_raw, list) else []
+        items.append(
+            FormReadItem(
+                id_formulario=row["id_formulario"],
+                id_usuario=row["id_usuario"],
+                fecha_hora=fecha_iso,
+                latitud=lat,
+                longitud=lon,
+                precision=None,
+                datos_formulario=datos,
+                fotos=fotos_list,
+            ),
+        )
+    return items

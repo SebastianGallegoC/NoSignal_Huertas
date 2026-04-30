@@ -26,7 +26,9 @@ export const InicioPage = () => {
             className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-[0_18px_40px_-35px_rgba(30,41,59,0.45)] transition hover:-translate-y-0.5"
           >
             <h2 className="text-lg font-semibold text-slate-900">Ver formularios diligenciados</h2>
-            <p className="mt-2 text-sm text-slate-600">Consulta el historial local y su estado de envío.</p>
+            <p className="mt-2 text-sm text-slate-600">
+              Historial de este equipo y, si hay sesión, formularios ya guardados en el servidor.
+            </p>
           </Link>
         </section>
       </div>

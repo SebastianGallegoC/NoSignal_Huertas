@@ -1,15 +1,28 @@
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
+from app.repository.forms import list_forms_for_read
 from app.schemas.form_payload import FormPayload
+from app.schemas.form_read import FormListResponse
 from app.services.forms import persist_form
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+
+@router.get("/", response_model=FormListResponse)
+async def list_forms(
+    limit: int = Query(200, ge=1, le=500),
+    session: AsyncSession = Depends(get_session),
+    _current_user: str = Depends(get_current_user),
+):
+    """Lista formularios guardados en el servidor (todos los dispositivos que sincronizaron)."""
+    items = await list_forms_for_read(session, limit)
+    return FormListResponse(items=items)
 
 
 @router.post("/")

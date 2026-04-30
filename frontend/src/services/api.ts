@@ -91,6 +91,30 @@ export const loginApi = async (username: string, password: string): Promise<Logi
   return response.json() as Promise<LoginResponse>;
 };
 
+/** Respuesta de `GET /api/v1/forms/` (datos en servidor; fotos = rutas de archivo). */
+export interface FormReadItem {
+  id_formulario: string;
+  id_usuario: string;
+  fecha_hora: string;
+  latitud: number;
+  longitud: number;
+  precision: number | null;
+  datos_formulario: Record<string, unknown>;
+  fotos: unknown[];
+}
+
+export const listFormsFromApi = async (limit = 200): Promise<FormReadItem[]> => {
+  const response = await fetch(`${API_BASE}/api/v1/forms/?limit=${limit}`, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) {
+    const t = await response.text();
+    throw new Error(t || `forms_list_${response.status}`);
+  }
+  const body = (await response.json()) as { items?: FormReadItem[] };
+  return Array.isArray(body.items) ? body.items : [];
+};
+
 export const postForm = async (payload: OfflineForm): Promise<Response> => {
   const body = payloadForApi(payload);
   // FastAPI suele redirigir /forms -> /forms/ (307). En algunos despliegues ese redirect

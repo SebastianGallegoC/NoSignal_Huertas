@@ -31,6 +31,10 @@ export interface HistorialForm {
   estado: EstadoHistorial;
   fecha_envio?: string;
   ultimo_error?: string;
+  /** Copia local de respuestas (necesaria tras ENVIADO: se borra la fila en `formularios`). */
+  datos_formulario?: Record<string, unknown>;
+  gps?: OfflineForm['gps'];
+  fotos?: OfflineForm['fotos'];
 }
 
 export interface SesionLocalRow {
@@ -54,6 +58,11 @@ export class NoSignalDB extends Dexie {
       sesionLocal: 'id',
     });
     this.version(3).stores({
+      formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
+      historialFormularios: '&id_formulario, estado, fecha_hora',
+      sesionLocal: 'id',
+    });
+    this.version(4).stores({
       formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
       historialFormularios: '&id_formulario, estado, fecha_hora',
       sesionLocal: 'id',

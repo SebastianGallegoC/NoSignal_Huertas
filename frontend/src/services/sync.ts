@@ -31,6 +31,9 @@ export const enqueueForm = async (form: OfflineForm): Promise<void> => {
     id_usuario: form.id_usuario,
     fecha_hora: form.fecha_hora,
     estado: 'PENDIENTE',
+    datos_formulario: form.datos_formulario,
+    gps: form.gps,
+    fotos: form.fotos,
   });
 };
 
@@ -148,6 +151,9 @@ export const syncPendingForms = async (): Promise<SyncRunResult> => {
         estado: 'ENVIADO',
         fecha_envio: new Date().toISOString(),
         ultimo_error: undefined,
+        datos_formulario: form.datos_formulario,
+        gps: form.gps,
+        fotos: form.fotos,
       });
       await db.formularios.delete(form.id_formulario);
       result.sent += 1;

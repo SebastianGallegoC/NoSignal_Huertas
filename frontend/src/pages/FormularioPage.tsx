@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type FieldErrors } from 'react-hook-form';
 import { Link } from 'react-router-dom';
 
 import { FormFieldRow } from '@/components/form/FormFieldRow';
@@ -28,7 +28,7 @@ import {
 } from '@/services/sync';
 import { randomUuid } from '@/lib/randomUuid';
 import { useAuthStore } from '@/store/useAuthStore';
-import { REQUIRED_FIELDS, type FormValues } from '@/types/formFields';
+import { REQUIRED_FIELDS, type FormFieldKey, type FormValues } from '@/types/formFields';
 
 const describeValidationErrors = (codes: string[]): string => {
   const parts = codes.map((code) => {
@@ -128,6 +128,7 @@ export const FormularioPage = () => {
   const [sincronizando, setSincronizando] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState<Set<string>>(() => new Set(['actividad']));
   const pickerInputRef = useRef<HTMLInputElement | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -137,6 +138,7 @@ export const FormularioPage = () => {
     control,
     handleSubmit,
     reset,
+    setFocus,
     setValue,
     watch,
     getValues,
@@ -479,6 +481,23 @@ export const FormularioPage = () => {
     }
   };
 
+  const onInvalid = (formErrors: FieldErrors<FormValues>) => {
+    const fields = Object.keys(formErrors) as FormFieldKey[];
+    if (fields.length > 0) {
+      const sectionsWithErrors = new Set(
+        FORM_SECTIONS.filter((section) => section.fields.some((f) => fields.includes(f))).map((s) => s.id),
+      );
+      setOpenSections((prev) => new Set([...prev, ...sectionsWithErrors]));
+    }
+    if (fields.length > 0) {
+      const first = fields[0];
+      setBanner(`Faltan campos por completar o corregir (${fields.length}). Revisá el formulario.`);
+      setFocus(first);
+      return;
+    }
+    setBanner('El formulario tiene errores. Revisá los campos e intentá nuevamente.');
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-8 text-slate-900 sm:px-6">
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -604,7 +623,7 @@ export const FormularioPage = () => {
             if (ae instanceof HTMLElement && e.currentTarget.contains(ae)) {
               ae.blur();
             }
-            void handleSubmit(onValid)(e);
+            void handleSubmit(onValid, onInvalid)(e);
           }}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
@@ -693,7 +712,19 @@ export const FormularioPage = () => {
           {FORM_SECTIONS.map((section) => (
             <details
               key={section.id}
-              open={section.id === 'actividad'}
+              open={openSections.has(section.id)}
+              onToggle={(e) => {
+                const isOpen = (e.currentTarget as HTMLDetailsElement).open;
+                setOpenSections((prev) => {
+                  const next = new Set(prev);
+                  if (isOpen) {
+                    next.add(section.id);
+                  } else {
+                    next.delete(section.id);
+                  }
+                  return next;
+                });
+              }}
               className="group rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"
             >
               <summary className="cursor-pointer text-sm font-semibold text-slate-900">{section.title}</summary>

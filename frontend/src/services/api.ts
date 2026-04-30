@@ -18,9 +18,24 @@ function ensureFotoDataUrl(data: string): string {
   return s;
 }
 
+/** Ajusta id_usuario a formato seguro para backends con validación estricta. */
+function ensureSafeUserId(raw: string): string {
+  const base = (raw || '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9._-]/g, '')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64);
+  return base || 'sin_usuario';
+}
+
 function payloadForApi(form: OfflineForm): OfflineForm {
   return {
     ...form,
+    id_usuario: ensureSafeUserId(form.id_usuario),
     fotos: form.fotos.map((f) => ({
       ...f,
       data: ensureFotoDataUrl(f.data),

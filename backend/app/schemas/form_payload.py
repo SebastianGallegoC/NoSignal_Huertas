@@ -39,8 +39,14 @@ class FormPayload(BaseModel):
     @field_validator("id_usuario")
     @classmethod
     def validate_id_usuario(cls, value: str) -> str:
-        allowed = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-")
-        if any(ch not in allowed for ch in value):
+        """Nombres legibles (espacios, Unicode); se excluyen solo caracteres peligrosos para rutas."""
+        v = value.strip()
+        if not v:
             raise ValueError("invalid_id_usuario")
-        return value
+        forbidden = '\\/\0<>:"|?*'
+        if any(c in forbidden for c in v):
+            raise ValueError("invalid_id_usuario")
+        if v in (".", ".."):
+            raise ValueError("invalid_id_usuario")
+        return v
 

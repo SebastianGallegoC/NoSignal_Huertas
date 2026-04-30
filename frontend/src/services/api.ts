@@ -5,6 +5,19 @@ import type { OfflineForm } from './db';
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 const LEGACY_API_MAX_GPS_ACCURACY_METERS = 5;
 
+type ApiFormPayload = {
+  id_formulario: string;
+  id_usuario: string;
+  fecha_hora: string;
+  gps: {
+    latitud: number;
+    longitud: number;
+    precision: number;
+  };
+  datos_formulario: Record<string, unknown>;
+  fotos: Array<{ nombre_archivo: string; data: string }>;
+};
+
 /** Normaliza imágenes para el validador del API (prefijo data:image/…). */
 function ensureFotoDataUrl(data: string): string {
   const s = typeof data === 'string' ? data : '';
@@ -33,15 +46,17 @@ function ensureSafeUserId(raw: string): string {
   return base || 'sin_usuario';
 }
 
-function payloadForApi(form: OfflineForm): OfflineForm {
+function payloadForApi(form: OfflineForm): ApiFormPayload {
   return {
-    ...form,
+    id_formulario: form.id_formulario,
     id_usuario: ensureSafeUserId(form.id_usuario),
+    fecha_hora: form.fecha_hora,
     gps: {
       ...form.gps,
       // Compatibilidad con backend productivo antiguo (rechaza precisión > 5m con 422).
       precision: Math.min(form.gps.precision, LEGACY_API_MAX_GPS_ACCURACY_METERS),
     },
+    datos_formulario: form.datos_formulario,
     fotos: form.fotos.map((f) => ({
       ...f,
       data: ensureFotoDataUrl(f.data),

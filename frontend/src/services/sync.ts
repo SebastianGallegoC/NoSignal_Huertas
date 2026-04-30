@@ -4,12 +4,17 @@ import { postForm } from './api';
 const RETENTION_DAYS = 3;
 const BACKOFF_STEPS_MS = [30_000, 60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000];
 const MAX_GPS_ACCURACY_METERS = 100;
+const MIN_PHOTOS = 3;
+const MAX_PHOTOS = 15;
 
 export const validateFormPayload = (form: OfflineForm): string[] => {
   const errors: string[] = [];
 
   if (!form.gps || form.gps.precision > MAX_GPS_ACCURACY_METERS) {
     errors.push('gps_precision');
+  }
+  if (!Array.isArray(form.fotos) || form.fotos.length < MIN_PHOTOS || form.fotos.length > MAX_PHOTOS) {
+    errors.push('fotos_count');
   }
 
   return errors;

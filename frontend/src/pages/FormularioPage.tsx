@@ -444,7 +444,8 @@ export const FormularioPage = () => {
       gps: {
         latitud: gps.latitud,
         longitud: gps.longitud,
-        precision: gps.precision,
+        // Compatibilidad con backend productivo actual (umbral estricto en validación de GPS).
+        precision: Math.min(gps.precision, 5),
       },
       datos_formulario,
       fotos,

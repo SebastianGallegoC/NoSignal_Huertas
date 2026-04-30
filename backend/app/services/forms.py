@@ -15,7 +15,11 @@ async def persist_form(session: AsyncSession, payload: FormPayload) -> FormRecor
         return existing
 
     fecha_hora = datetime.fromisoformat(payload.fecha_hora)
-    fotos = save_photos(payload.id_usuario, payload.id_formulario, payload.fotos, fecha_hora)
+    fotos = (
+        save_photos(payload.id_usuario, payload.id_formulario, payload.fotos, fecha_hora)
+        if payload.fotos
+        else []
+    )
 
     gps_point = WKTElement(f"POINT({payload.gps.longitud} {payload.gps.latitud})", srid=4326)
 

@@ -30,6 +30,12 @@
 8. Se relaja el esquema backend para permitir datos_formulario/fotos vacios y id_usuario por defecto.
    - Motivo: evitar 422 en modo pruebas cuando solo se exige GPS.
    - Cambios: [backend/app/schemas/form_payload.py](backend/app/schemas/form_payload.py)
+9. Se intento padding automatico de fotos, pero se revertio por solicitud del usuario.
+   - Motivo: se requiere eliminar el minimo de 3 fotos por completo en modo pruebas.
+   - Cambios revertidos: [frontend/src/services/api.ts](frontend/src/services/api.ts)
+10. Backend permite lista de fotos vacia para pruebas y despliegue.
+   - Motivo: no exigir minimo de 3 fotos en el servidor.
+   - Cambios: [backend/app/services/forms.py](backend/app/services/forms.py)
 
 ## Hipotesis en revision (si el problema persiste)
 

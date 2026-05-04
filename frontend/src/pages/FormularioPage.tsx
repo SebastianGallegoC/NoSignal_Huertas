@@ -862,19 +862,7 @@ export const FormularioPage = () => {
                 >
                   Abrir cámara
                 </Button>
-              ) : (
-                <>
-                  <Button
-                    type="button"
-                    onClick={() => void captureFromCamera()}
-                  >
-                    Tomar foto
-                  </Button>
-                  <Button type="button" variant="outline" onClick={stopCamera}>
-                    Cerrar cámara
-                  </Button>
-                </>
-              )}
+              ) : null}
             </div>
             <input
               ref={pickerInputRef}
@@ -885,13 +873,24 @@ export const FormularioPage = () => {
               onChange={(e) => void onFotosChange(e)}
             />
             {cameraOpen ? (
-              <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+              <div className="relative mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-900">
                 <video
                   ref={cameraVideoRef}
                   className="h-auto w-full"
                   playsInline
                   muted
                 />
+                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-slate-950/70 via-slate-950/40 to-transparent p-3 sm:flex-row sm:justify-end">
+                  <Button
+                    type="button"
+                    onClick={() => void captureFromCamera()}
+                  >
+                    Tomar foto
+                  </Button>
+                  <Button type="button" variant="outline" onClick={stopCamera}>
+                    Cerrar cámara
+                  </Button>
+                </div>
               </div>
             ) : null}
             {fotos.length ? (

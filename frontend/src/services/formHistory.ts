@@ -1,6 +1,6 @@
 import type { FormularioSnapshot } from "@/components/form/FormularioRespuestaReadOnly";
 import type { FormReadItem } from "@/services/api";
-import type { HistorialForm } from "@/services/db";
+import type { HistorialForm, PrecargaForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormValues } from "@/types/formFields";
 
 export type DisplayRow = {
@@ -8,6 +8,11 @@ export type DisplayRow = {
   onServer: boolean;
   server?: FormReadItem;
   historial?: HistorialForm;
+  /**
+   * Fila solo por precarga en IndexedDB (p. ej. sin fila en historial cuando
+   * el listado del servidor no está disponible offline).
+   */
+  precargaSolo?: PrecargaForm;
 };
 
 export function mergeForms(server: FormReadItem[], local: HistorialForm[]): DisplayRow[] {
@@ -35,6 +40,33 @@ export function mergeForms(server: FormReadItem[], local: HistorialForm[]): Disp
     const ta = Date.parse(a.server?.fecha_hora ?? a.historial?.fecha_hora ?? "");
     const tb = Date.parse(b.server?.fecha_hora ?? b.historial?.fecha_hora ?? "");
     return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+  });
+}
+
+/** Une servidor + historial y agrega filas por precargas huérfanas (sin id en el merge). */
+export function mergeFormsWithPrecargas(
+  server: FormReadItem[],
+  local: HistorialForm[],
+  precargas: PrecargaForm[],
+): DisplayRow[] {
+  const merged = mergeForms(server, local);
+  const ids = new Set(merged.map((r) => r.id_formulario));
+  for (const p of precargas) {
+    if (!ids.has(p.id_formulario)) {
+      merged.push({
+        id_formulario: p.id_formulario,
+        onServer: false,
+        precargaSolo: p,
+      });
+      ids.add(p.id_formulario);
+    }
+  }
+  return merged.sort((a, b) => {
+    const ta = getFechaReferenciaEnvio(a);
+    const tb = getFechaReferenciaEnvio(b);
+    const sa = Number.isNaN(ta) ? 0 : ta;
+    const sb = Number.isNaN(tb) ? 0 : tb;
+    return sb - sa;
   });
 }
 
@@ -82,6 +114,9 @@ export function getFechaReferenciaEnvio(row: DisplayRow): number {
   if (h?.fecha_hora) {
     return Date.parse(h.fecha_hora);
   }
+  if (row.precargaSolo?.fecha_precarga) {
+    return Date.parse(row.precargaSolo.fecha_precarga);
+  }
   return NaN;
 }
 
@@ -89,11 +124,13 @@ export function getFechaReferenciaEnvio(row: DisplayRow): number {
 export function getBeneficiarioDisplayName(row: DisplayRow): string {
   const h = row.historial;
   const s = row.server;
+  const solo = row.precargaSolo?.datos_formulario;
   const raw =
     (h?.datos_formulario as Record<string, unknown> | undefined)
       ?.nombres_apellidos_beneficiario ??
     (s?.datos_formulario as Record<string, unknown> | undefined)
-      ?.nombres_apellidos_beneficiario;
+      ?.nombres_apellidos_beneficiario ??
+    solo?.nombres_apellidos_beneficiario;
   if (typeof raw === "string" && raw.trim() !== "") {
     return raw.trim();
   }

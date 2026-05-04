@@ -21,7 +21,7 @@ import {
   getBeneficiarioDisplayName,
   getFechaReferenciaEnvio,
   mapServerFotos,
-  mergeForms,
+  mergeFormsWithPrecargas,
   normalizeTextoBusqueda,
   parseFiltroDiaFin,
   parseFiltroDiaInicio,
@@ -105,42 +105,42 @@ export const FormulariosDiligenciadosPage = () => {
     return out;
   }, [rows, filtroDesde, filtroHasta, filtroBeneficiario]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const local = await db.historialFormularios
-        .orderBy("fecha_hora")
-        .reverse()
-        .toArray();
-      const precargaRows = await db.precargas.toArray();
-      let server: FormReadItem[] = [];
-      let err: string | null = null;
-      const hasToken =
-        typeof localStorage !== "undefined" &&
-        !!localStorage.getItem(ACCESS_TOKEN_KEY);
-      if (hasToken) {
-        try {
-          server = await listFormsFromApi();
-        } catch (e) {
-          err =
-            e instanceof Error
-              ? e.message
-              : "Error al cargar desde el servidor";
-        }
+  const loadList = useCallback(async () => {
+    const local = await db.historialFormularios
+      .orderBy("fecha_hora")
+      .reverse()
+      .toArray();
+    const precargaRows = await db.precargas.toArray();
+    let server: FormReadItem[] = [];
+    let err: string | null = null;
+    const hasToken =
+      typeof localStorage !== "undefined" &&
+      !!localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (hasToken) {
+      try {
+        server = await listFormsFromApi();
+      } catch (e) {
+        err =
+          e instanceof Error
+            ? e.message
+            : "Error al cargar desde el servidor";
       }
-      if (cancelled) {
-        return;
-      }
-      setRows(mergeForms(server, local));
-      setRemoteError(err);
-      setRemoteLoaded(hasToken);
-      setPrecargas(precargaRows);
-    };
-    void load();
-    return () => {
-      cancelled = true;
-    };
+    }
+    setRows(mergeFormsWithPrecargas(server, local, precargaRows));
+    setRemoteError(err);
+    setRemoteLoaded(hasToken);
+    setPrecargas(precargaRows);
   }, []);
+
+  useEffect(() => {
+    void loadList();
+  }, [loadList]);
+
+  useEffect(() => {
+    const onOnline = () => void loadList();
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [loadList]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -298,8 +298,7 @@ export const FormulariosDiligenciadosPage = () => {
         };
 
         await db.precargas.put(precarga);
-        const precargaRows = await db.precargas.toArray();
-        setPrecargas(precargaRows);
+        await loadList();
         if (selectedId === row.id_formulario) {
           setDetailPrecarga(precarga);
           setDetailSnapshot(precargaToSnapshot(precarga));
@@ -319,7 +318,7 @@ export const FormulariosDiligenciadosPage = () => {
         setPrecargaLoadingId(null);
       }
     },
-    [precargaLoadingId, selectedId],
+    [loadList, precargaLoadingId, selectedId],
   );
 
   const usarComoBase = useCallback(
@@ -347,7 +346,17 @@ export const FormulariosDiligenciadosPage = () => {
         v: 1,
         savedAt: new Date().toISOString(),
         formId: randomUuid(),
-        idUsuario: row.server?.id_usuario ?? row.historial?.id_usuario ?? "",
+        idUsuario: (() => {
+          const u = row.server?.id_usuario ?? row.historial?.id_usuario;
+          if (u) {
+            return u;
+          }
+          const raw = row.precargaSolo?.datos_formulario?.usuario_cens;
+          if (typeof raw === "string" && raw.trim() !== "") {
+            return raw.trim();
+          }
+          return "";
+        })(),
         formValues,
         fotos,
         gps,
@@ -400,10 +409,6 @@ export const FormulariosDiligenciadosPage = () => {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Nombre del beneficiario
               </h3>
-              <p className="mt-1 text-xs text-slate-600">
-                Búsqueda por parte del nombre; no distingue mayúsculas ni
-                tildes.
-              </p>
               <input
                 type="search"
                 value={filtroBeneficiario}
@@ -418,12 +423,6 @@ export const FormulariosDiligenciadosPage = () => {
               <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Fecha de envío / del formulario
               </h3>
-              <p className="mt-1 text-xs text-slate-600">
-                Prioridad: fecha en que la sincronización salió bien en este
-                equipo; si no hay copia local enviada, la fecha/hora que viajó
-                en el formulario hacia el servidor (payload), no la de creación
-                del registro en base de datos.
-              </p>
               <div className="mt-3 flex flex-wrap items-end gap-3">
                 <label className="flex flex-col text-xs font-medium text-slate-700">
                   Desde
@@ -512,7 +511,12 @@ export const FormulariosDiligenciadosPage = () => {
                             Servidor
                           </span>
                         ) : null}
-                        {!row.onServer ? (
+                        {row.precargaSolo ? (
+                          <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
+                            Precarga offline
+                          </span>
+                        ) : null}
+                        {!row.onServer && !row.precargaSolo ? (
                           <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-800">
                             Solo este equipo
                           </span>
@@ -543,6 +547,10 @@ export const FormulariosDiligenciadosPage = () => {
                       ) : row.onServer ? (
                         <p className="text-sm font-semibold text-emerald-700">
                           Sincronizado en servidor
+                        </p>
+                      ) : row.precargaSolo ? (
+                        <p className="text-sm font-semibold text-indigo-800">
+                          Copia guardada en este dispositivo para uso sin red
                         </p>
                       ) : null}
                       {h?.ultimo_error ? (

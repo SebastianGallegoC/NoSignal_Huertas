@@ -330,6 +330,17 @@ export const FormularioPage = () => {
     });
   };
 
+  const waitForVideoElement = async (): Promise<HTMLVideoElement | null> => {
+    for (let i = 0; i < 6; i += 1) {
+      const video = cameraVideoRef.current;
+      if (video) {
+        return video;
+      }
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+    }
+    return null;
+  };
+
   const stopCamera = () => {
     const stream = cameraStreamRef.current;
     if (stream) {
@@ -347,28 +358,26 @@ export const FormularioPage = () => {
       return;
     }
     try {
+      setCameraOpen(true);
+      const video = await waitForVideoElement();
+      if (!video) {
+        setBanner("No se pudo inicializar la vista de cámara.");
+        return;
+      }
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" } },
         audio: false,
       });
-      const video = cameraVideoRef.current;
-      if (!video) {
-        for (const track of stream.getTracks()) {
-          track.stop();
-        }
-        setBanner("No se pudo inicializar la vista de cámara.");
-        return;
-      }
       video.srcObject = stream;
       video.muted = true;
       video.setAttribute("playsinline", "true");
       await video.play();
       await waitForVideoReady(video);
       cameraStreamRef.current = stream;
-      setCameraOpen(true);
       setBanner(null);
     } catch {
       setBanner("No se pudo abrir la cámara. Verifica permisos del navegador.");
+      setCameraOpen(false);
     }
   };
 
@@ -809,15 +818,6 @@ export const FormularioPage = () => {
             <h2 className="text-sm font-semibold text-slate-900">
               Usuario del registro
             </h2>
-            <p className="text-xs text-slate-500">
-              Este valor se envía como{" "}
-              <code className="rounded bg-slate-100 px-1">id_usuario</code>.
-              Editá las opciones en{" "}
-              <code className="rounded bg-slate-100 px-1">
-                config/usuariosFormulario.ts
-              </code>
-              .
-            </p>
             <label className="mt-3 flex flex-col text-sm font-medium text-slate-800">
               Selección
               <select

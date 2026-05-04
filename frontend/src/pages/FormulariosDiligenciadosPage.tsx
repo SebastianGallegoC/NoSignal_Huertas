@@ -142,9 +142,7 @@ function precargaToSnapshot(precarga: PrecargaForm): FormularioSnapshot {
   };
 }
 
-function buildFormValuesFromSnapshot(
-  snapshot: FormularioSnapshot,
-): FormValues {
+function buildFormValuesFromSnapshot(snapshot: FormularioSnapshot): FormValues {
   const base = Object.fromEntries(
     REQUIRED_FIELDS.map((k) => [k, ""]),
   ) as FormValues;
@@ -174,8 +172,9 @@ export const FormulariosDiligenciadosPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailSnapshot, setDetailSnapshot] =
     useState<FormularioSnapshot | null>(null);
-  const [detailPrecarga, setDetailPrecarga] =
-    useState<PrecargaForm | null>(null);
+  const [detailPrecarga, setDetailPrecarga] = useState<PrecargaForm | null>(
+    null,
+  );
   const [detailLoading, setDetailLoading] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [remoteLoaded, setRemoteLoaded] = useState(false);
@@ -332,9 +331,7 @@ export const FormulariosDiligenciadosPage = () => {
       }
       setPrecargaError(null);
       if (!navigator.onLine) {
-        setPrecargaError(
-          "Necesitás conexión para precargar este formulario.",
-        );
+        setPrecargaError("Necesitás conexión para precargar este formulario.");
         return;
       }
       const token =
@@ -356,10 +353,8 @@ export const FormulariosDiligenciadosPage = () => {
         let failedFotos = 0;
         if (row.server) {
           const baseFotos =
-            mapServerFotos(
-              row.server.id_formulario,
-              row.server.fotos ?? [],
-            ) ?? [];
+            mapServerFotos(row.server.id_formulario, row.server.fotos ?? []) ??
+            [];
           const fotos: Array<{ nombre_archivo: string; data: string }> = [];
           for (const foto of baseFotos) {
             if (foto.serverFormId == null || foto.serverIndex == null) {
@@ -402,9 +397,7 @@ export const FormulariosDiligenciadosPage = () => {
 
         const fotosPrecarga = (snapshot.fotos ?? [])
           .map((f) =>
-            f.data
-              ? { nombre_archivo: f.nombre_archivo, data: f.data }
-              : null,
+            f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null,
           )
           .filter(
             (f): f is { nombre_archivo: string; data: string } => f !== null,
@@ -449,10 +442,11 @@ export const FormulariosDiligenciadosPage = () => {
         return;
       }
       const formValues = buildFormValuesFromSnapshot(detailSnapshot);
-      const sourceFotos =
-        detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [];
+      const sourceFotos = detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [];
       const fotos = sourceFotos
-        .map((f) => (f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null))
+        .map((f) =>
+          f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null,
+        )
         .filter(
           (f): f is { nombre_archivo: string; data: string } => f !== null,
         );
@@ -699,7 +693,7 @@ export const FormulariosDiligenciadosPage = () => {
                             </Button>
                             {precargaMap.has(row.id_formulario) ? (
                               <span className="text-xs text-slate-500">
-                                Precargado el {" "}
+                                Precargado el{" "}
                                 {formatDateTime(
                                   Date.parse(
                                     precargaMap.get(row.id_formulario)
@@ -709,8 +703,7 @@ export const FormulariosDiligenciadosPage = () => {
                               </span>
                             ) : null}
                           </div>
-                          {precargaError &&
-                          selectedId === row.id_formulario ? (
+                          {precargaError && selectedId === row.id_formulario ? (
                             <p className="text-xs text-rose-600">
                               {precargaError}
                             </p>

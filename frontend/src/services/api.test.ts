@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { listFormsFromApi } from "./api";
+import { deleteFormFromApi, listFormsFromApi } from "./api";
 
 describe("listFormsFromApi", () => {
   afterEach(() => {
@@ -42,5 +42,35 @@ describe("listFormsFromApi", () => {
       }),
     );
     await expect(listFormsFromApi()).rejects.toThrow("boom");
+  });
+});
+
+describe("deleteFormFromApi", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("resuelve sin error cuando el backend responde 204", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 204,
+        text: async () => "",
+      }),
+    );
+    await expect(deleteFormFromApi("f-1")).resolves.toBeUndefined();
+  });
+
+  it("lanza cuando el backend responde 404", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 404,
+        text: async () => "not found",
+      }),
+    );
+    await expect(deleteFormFromApi("missing")).rejects.toThrow("not found");
   });
 });

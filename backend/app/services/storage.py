@@ -1,5 +1,6 @@
 import base64
 import json
+import logging
 import os
 from datetime import datetime
 from io import BytesIO
@@ -9,6 +10,8 @@ from PIL import Image
 
 from app.core.config import settings
 from app.schemas.form_payload import PhotoPayload
+
+logger = logging.getLogger(__name__)
 
 
 def normalize_stored_foto_paths(raw: object) -> list[str]:
@@ -59,6 +62,18 @@ def validated_photo_path(stored: str) -> Path | None:
     if not candidate.is_file():
         return None
     return candidate
+
+
+def safe_delete_stored_photos(paths: list[str]) -> None:
+    """Elimina archivos de foto bajo `upload_root` (silencia errores puntuales)."""
+    for stored in paths:
+        p = validated_photo_path(stored)
+        if p is None:
+            continue
+        try:
+            p.unlink()
+        except OSError as exc:
+            logger.warning("No se pudo borrar archivo de foto %s: %s", p, exc)
 
 
 def media_type_for_image(path: Path) -> str:

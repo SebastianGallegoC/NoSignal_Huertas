@@ -1,12 +1,12 @@
 import logging
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
-from app.repository.forms import get_form_fotos_paths_by_id, list_forms_for_read
+from app.repository.forms import delete_form, get_form_fotos_paths_by_id, list_forms_for_read
 from app.schemas.form_payload import FormPayload
 from app.schemas.form_read import FormListResponse
 from app.services.forms import persist_form
@@ -69,3 +69,16 @@ async def create_form(
         logger.warning("422 persist_form: %s", exc)
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"status": "queued", "id_formulario": record.id_formulario}
+
+
+@router.delete("/{form_id}")
+async def delete_form_endpoint(
+    form_id: str,
+    session: AsyncSession = Depends(get_session),
+    _current_user: str = Depends(get_current_user),
+):
+    """Elimina un formulario del servidor (fila en BD y archivos de foto asociados)."""
+    deleted = await delete_form(session, form_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="form_not_found")
+    return Response(status_code=204)

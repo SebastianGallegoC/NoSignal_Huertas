@@ -45,6 +45,11 @@ export interface PrecargaForm {
   fotos?: OfflineForm['fotos'];
 }
 
+/** Formularios que el usuario ocultó en «diligenciados» en este equipo (sigue en servidor). */
+export interface FormularioOculto {
+  id_formulario: string;
+}
+
 export interface SesionLocalRow {
   id: 'current';
   accessToken: string;
@@ -55,6 +60,7 @@ export class NoSignalDB extends Dexie {
   formularios!: Table<OfflineForm>;
   historialFormularios!: Table<HistorialForm>;
   precargas!: Table<PrecargaForm>;
+  formulariosOcultos!: Table<FormularioOculto>;
   sesionLocal!: Table<SesionLocalRow>;
 
   constructor() {
@@ -80,6 +86,13 @@ export class NoSignalDB extends Dexie {
       formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
       historialFormularios: '&id_formulario, estado, fecha_hora',
       precargas: '&id_formulario, fecha_precarga',
+      sesionLocal: 'id',
+    });
+    this.version(6).stores({
+      formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
+      historialFormularios: '&id_formulario, estado, fecha_hora',
+      precargas: '&id_formulario, fecha_precarga',
+      formulariosOcultos: '&id_formulario',
       sesionLocal: 'id',
     });
   }

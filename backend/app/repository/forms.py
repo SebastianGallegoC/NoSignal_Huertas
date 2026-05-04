@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.form_record import FormRecord
 from app.schemas.form_read import FormReadItem
-from app.services.storage import normalize_stored_foto_paths
+from app.services.storage import normalize_stored_foto_paths, safe_delete_stored_photos
 
 
 async def get_form_by_id(session: AsyncSession, form_id: str) -> FormRecord | None:
@@ -28,6 +28,18 @@ async def create_form(session: AsyncSession, record: FormRecord) -> FormRecord:
     await session.commit()
     await session.refresh(record)
     return record
+
+
+async def delete_form(session: AsyncSession, form_id: str) -> bool:
+    """Borra la fila en BD y luego intenta borrar archivos de foto en disco."""
+    record = await get_form_by_id(session, form_id)
+    if record is None:
+        return False
+    paths = normalize_stored_foto_paths(record.fotos)
+    await session.delete(record)
+    await session.commit()
+    safe_delete_stored_photos(paths)
+    return True
 
 
 async def list_forms_for_read(session: AsyncSession, limit: int) -> list[FormReadItem]:

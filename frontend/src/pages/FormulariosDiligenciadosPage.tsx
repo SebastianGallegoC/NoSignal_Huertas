@@ -10,12 +10,17 @@ import { ACCESS_TOKEN_KEY } from "@/lib/authStorage";
 import { formatDateTime } from "@/lib/formatDateTime";
 import { randomUuid } from "@/lib/randomUuid";
 import {
+  deleteFormFromApi,
   fetchFormPhotoDataUrl,
   listFormsFromApi,
   type FormReadItem,
 } from "@/services/api";
 import { saveFormDraft, type FormDraftV1 } from "@/services/formDraftStorage";
 import { db, type HistorialForm, type PrecargaForm } from "@/services/db";
+import {
+  eliminarFormularioDeDispositivo,
+  loadHiddenFormIds,
+} from "@/services/formLocalDelete";
 import {
   buildFormValuesFromSnapshot,
   getBeneficiarioDisplayName,
@@ -57,6 +62,8 @@ export const FormulariosDiligenciadosPage = () => {
     null,
   );
   const [precargaError, setPrecargaError] = useState<string | null>(null);
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null);
+  const [eliminarError, setEliminarError] = useState<string | null>(null);
 
   const precargaMap = useMemo(() => {
     return new Map(precargas.map((p) => [p.id_formulario, p]));
@@ -126,7 +133,9 @@ export const FormulariosDiligenciadosPage = () => {
             : "Error al cargar desde el servidor";
       }
     }
-    setRows(mergeFormsWithPrecargas(server, local, precargaRows));
+    const merged = mergeFormsWithPrecargas(server, local, precargaRows);
+    const ocultos = await loadHiddenFormIds();
+    setRows(merged.filter((r) => !ocultos.has(r.id_formulario)));
     setRemoteError(err);
     setRemoteLoaded(hasToken);
     setPrecargas(precargaRows);
@@ -367,6 +376,53 @@ export const FormulariosDiligenciadosPage = () => {
     [authUsername, detailPrecarga, detailSnapshot, navigate],
   );
 
+  const eliminarDeEsteEquipo = useCallback(
+    async (row: DisplayRow) => {
+      setEliminarError(null);
+      const token =
+        typeof localStorage !== "undefined"
+          ? localStorage.getItem(ACCESS_TOKEN_KEY)
+          : null;
+      const puedeBorrarEnServidor =
+        row.onServer && navigator.onLine && !!token;
+      const msg = puedeBorrarEnServidor
+        ? "¿Eliminar este formulario?\n\nCon conexión y sesión activa también se borrará en el servidor (base de datos y fotos). Además se quita la copia local (historial, precarga y cola) en este equipo."
+        : "¿Eliminar de este dispositivo?\n\nSe quitan la copia local (historial, precarga y formularios en cola). Sin conexión o sin sesión, el registro puede seguir en el servidor; en ese caso solo dejará de mostrarse aquí.";
+      if (!window.confirm(msg)) {
+        return;
+      }
+      setEliminandoId(row.id_formulario);
+      try {
+        if (puedeBorrarEnServidor) {
+          try {
+            await deleteFormFromApi(row.id_formulario);
+          } catch (e) {
+            setEliminarError(
+              e instanceof Error
+                ? e.message
+                : "No se pudo borrar en el servidor.",
+            );
+            return;
+          }
+        }
+        await eliminarFormularioDeDispositivo(row.id_formulario);
+        if (selectedId === row.id_formulario) {
+          setSelectedId(null);
+          setDetailSnapshot(null);
+          setDetailPrecarga(null);
+        }
+        await loadList();
+      } catch (e) {
+        setEliminarError(
+          e instanceof Error ? e.message : "No se pudo eliminar el registro.",
+        );
+      } finally {
+        setEliminandoId(null);
+      }
+    },
+    [loadList, selectedId],
+  );
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
       <div className="mx-auto w-full max-w-5xl">
@@ -386,6 +442,12 @@ export const FormulariosDiligenciadosPage = () => {
             Volver
           </Link>
         </header>
+
+        {eliminarError ? (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900">
+            {eliminarError}
+          </div>
+        ) : null}
 
         {remoteLoaded && remoteError ? (
           <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-amber-950">
@@ -499,11 +561,12 @@ export const FormulariosDiligenciadosPage = () => {
                       : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => void selectRow(row)}
-                    className="flex w-full items-start justify-between gap-3 p-4 text-left"
-                  >
+                  <div className="flex items-stretch gap-2 p-2 sm:gap-3 sm:p-3">
+                    <button
+                      type="button"
+                      onClick={() => void selectRow(row)}
+                      className="flex min-w-0 flex-1 items-start justify-between gap-3 rounded-xl p-2 text-left sm:p-3"
+                    >
                     <div className="min-w-0 flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {row.onServer ? (
@@ -568,7 +631,22 @@ export const FormulariosDiligenciadosPage = () => {
                     >
                       {isOpen ? "Cerrar" : "Ver formulario"}
                     </span>
-                  </button>
+                    </button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={eliminandoId === row.id_formulario}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void eliminarDeEsteEquipo(row);
+                      }}
+                      className="shrink-0 self-center border-rose-200 text-rose-800 hover:bg-rose-50"
+                    >
+                      {eliminandoId === row.id_formulario
+                        ? "…"
+                        : "Eliminar"}
+                    </Button>
+                  </div>
 
                   {isOpen ? (
                     <div className="border-t border-slate-200 bg-[linear-gradient(180deg,_#fafcfb_0%,_#fff_12%)] px-4 py-5">
@@ -601,6 +679,15 @@ export const FormulariosDiligenciadosPage = () => {
                               onClick={() => usarComoBase(row)}
                             >
                               Usar como base para nueva visita
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              disabled={eliminandoId === row.id_formulario}
+                              onClick={() => void eliminarDeEsteEquipo(row)}
+                              className="border-rose-200 text-rose-800 hover:bg-rose-50"
+                            >
+                              Eliminar de este equipo
                             </Button>
                             {precargaMap.has(row.id_formulario) ? (
                               <span className="text-xs text-slate-500">

@@ -108,3 +108,37 @@ def test_get_form_photo_returns_binary(monkeypatch, tmp_path: Path):
     assert resp.content == b"fake-jpeg-binary"
     assert resp.headers.get("cache-control") == "private, max-age=604800"
     app.dependency_overrides.clear()
+
+
+def test_delete_form_not_found(monkeypatch):
+    from app.api.v1 import forms as forms_mod
+
+    app.dependency_overrides[get_session] = _fake_session
+    app.dependency_overrides[get_current_user] = _fake_user
+
+    async def fake_delete(_session, _form_id):
+        return False
+
+    monkeypatch.setattr(forms_mod, "delete_form", fake_delete)
+    client = TestClient(app)
+    resp = client.delete("/api/v1/forms/no-existe")
+    assert resp.status_code == 404
+    assert resp.json()["detail"] == "form_not_found"
+    app.dependency_overrides.clear()
+
+
+def test_delete_form_returns_204(monkeypatch):
+    from app.api.v1 import forms as forms_mod
+
+    app.dependency_overrides[get_session] = _fake_session
+    app.dependency_overrides[get_current_user] = _fake_user
+
+    async def fake_delete(_session, form_id):
+        return form_id == "f-del"
+
+    monkeypatch.setattr(forms_mod, "delete_form", fake_delete)
+    client = TestClient(app)
+    resp = client.delete("/api/v1/forms/f-del")
+    assert resp.status_code == 204
+    assert resp.content == b""
+    app.dependency_overrides.clear()

@@ -111,6 +111,23 @@ export interface FormReadItem {
   fotos: unknown[];
 }
 
+/** Elimina el formulario en el servidor (requiere JWT). */
+export const deleteFormFromApi = async (formId: string): Promise<void> => {
+  const url = `${API_BASE}/api/v1/forms/${encodeURIComponent(formId)}`;
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: { ...authHeaders() },
+  });
+  if (response.status === 404) {
+    const t = await response.text();
+    throw new Error(t || 'form_not_found');
+  }
+  if (!response.ok) {
+    const t = await response.text();
+    throw new Error(t || `forms_delete_${response.status}`);
+  }
+};
+
 export const listFormsFromApi = async (limit = 200): Promise<FormReadItem[]> => {
   const response = await fetch(`${API_BASE}/api/v1/forms/?limit=${limit}`, {
     headers: { ...authHeaders() },

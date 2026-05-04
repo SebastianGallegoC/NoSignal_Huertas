@@ -519,6 +519,17 @@ export const FormularioPage = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (!cameraOpen) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [cameraOpen]);
+
   const onValid = async (values: FormValues) => {
     setBanner(null);
     setSubmitFeedback("Validando formulario...");
@@ -873,14 +884,14 @@ export const FormularioPage = () => {
               onChange={(e) => void onFotosChange(e)}
             />
             {cameraOpen ? (
-              <div className="relative mt-3 overflow-hidden rounded-xl border border-slate-200 bg-slate-900">
+              <div className="fixed inset-0 z-[220] bg-black">
                 <video
                   ref={cameraVideoRef}
-                  className="h-auto w-full"
+                  className="h-full w-full object-cover"
                   playsInline
                   muted
                 />
-                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-slate-950/70 via-slate-950/40 to-transparent p-3 sm:flex-row sm:justify-end">
+                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 sm:flex-row sm:justify-end">
                   <Button
                     type="button"
                     onClick={() => void captureFromCamera()}

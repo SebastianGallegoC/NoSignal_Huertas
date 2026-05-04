@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ChangeEvent } from "react";
-import { useForm, type FieldErrors } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { Link } from "react-router-dom";
 
 import {
@@ -11,6 +11,8 @@ import {
   ImagePreviewModal,
   type ImagePreview,
 } from "@/components/form/ImagePreviewModal";
+import { FormularioFotosSection } from "@/components/form/FormularioFotosSection";
+import { FormularioOverviewPanel } from "@/components/form/FormularioOverviewPanel";
 import { FormFieldRow } from "@/components/form/FormFieldRow";
 import { Button } from "@/components/ui/button";
 import { FORM_SECTIONS } from "@/config/formSections";
@@ -18,8 +20,7 @@ import { USUARIOS_FORMULARIO } from "@/config/usuariosFormulario";
 import { useGPS } from "@/hooks/useGPS";
 import { useCameraCapture } from "@/hooks/useCameraCapture";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { formatDateTime } from "@/lib/formatDateTime";
-import type { OfflineForm } from "@/services/db";
+import { useFormularioSubmit } from "@/hooks/useFormularioSubmit";
 import { compressImageFile, fileToDataUrl } from "@/services/imageCompression";
 import {
   clearFormDraft,
@@ -30,20 +31,14 @@ import {
 import {
   countErrorForms,
   countPendingForms,
-  enqueueForm,
   listSyncErrors,
   syncPendingForms,
   type SyncErrorItem,
 } from "@/services/sync";
-import {
-  joinValidationMessages,
-  validateOfflineFormPayload,
-} from "@/services/formValidation";
 import { randomUuid } from "@/lib/randomUuid";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
   REQUIRED_FIELDS,
-  type FormFieldKey,
   type FormValues,
 } from "@/types/formFields";
 
@@ -350,134 +345,27 @@ export const FormularioPage = () => {
     setValue("y_segundos", latDms.segundos.toFixed(3));
   }, [gps, setValue]);
 
-  const onValid = async (values: FormValues) => {
-    setBanner(null);
-    setSubmitFeedback("Validando formulario...");
-    if (!gps) {
-      setBanner("Tomá la ubicación GPS antes de enviar.");
-      setSubmitFeedback("No se pudo enviar: falta ubicación GPS.");
-      return;
-    }
-    if (fotos.length > 15) {
-      const message = `Máximo 15 fotos. Actual: ${fotos.length}.`;
-      setBanner(message);
-      setSubmitFeedback(message);
-      return;
-    }
-
-    const datos_formulario: Record<string, unknown> = {};
-    for (const key of REQUIRED_FIELDS) {
-      datos_formulario[key] = values[key];
-    }
-
-    const payload: OfflineForm = {
-      id_formulario: formId,
-      id_usuario: toSafeUserId(idUsuario || authUsername || "sin_usuario"),
-      fecha_hora: new Date().toISOString(),
-      gps: {
-        latitud: gps.latitud,
-        longitud: gps.longitud,
-        // Compatibilidad con backend productivo actual (umbral estricto en validación de GPS).
-        precision: Math.min(gps.precision, 5),
-      },
-      datos_formulario,
-      fotos,
-      estado_sincronizacion: "PENDIENTE",
-    };
-
-    const validationIssues = validateOfflineFormPayload(payload);
-    if (validationIssues.length > 0) {
-      const message =
-        joinValidationMessages(validationIssues) ||
-        "No se pudo enviar: hay validaciones pendientes.";
-      setBanner(message);
-      setSubmitFeedback(message);
-      return;
-    }
-
-    setEnviando(true);
-    setSubmitFeedback("Guardando formulario...");
-    try {
-      await enqueueForm(payload);
-      clearFormDraft(draftUserKey);
-      setBanner(null);
-      setSubmitFeedback(null);
-      if (!navigator.onLine) {
-        setEnvioModal({
-          tone: "warning",
-          title: "Guardado localmente (sin red)",
-          message:
-            "El formulario quedó guardado en este dispositivo y en cola. Se intentará enviar al servidor cuando recuperes Wi‑Fi o datos móviles.",
-        });
-      } else {
-        const result = await syncPendingForms();
-        if (result.failed > 0) {
-          setEnvioModal({
-            tone: "danger",
-            title: "Guardado local; falló el envío al servidor",
-            message:
-              "Hay conexión, pero la sincronización no se completó. Revisá «Errores sync» más abajo. Podés usar «Sincronizar ahora» cuando quieras reintentar.",
-          });
-        } else if (result.sent > 0) {
-          setEnvioModal({
-            tone: "success",
-            title: "Enviado correctamente",
-            message:
-              "El formulario se guardó y se sincronizó con el servidor. Ya podés cargar un nuevo registro si lo necesitás.",
-          });
-        } else {
-          setEnvioModal({
-            tone: "warning",
-            title: "En cola para sincronizar",
-            message:
-              "El formulario quedó guardado localmente en espera de envío (por ejemplo, otro intento en curso o reintento con espera). Se enviará automáticamente cuando corresponda.",
-          });
-        }
-      }
-      reset(defaults);
-      setFotos([]);
-      setFormId(randomUuid());
-      await refreshPendientes();
-    } catch {
-      setBanner(null);
-      setSubmitFeedback(null);
-      setEnvioModal({
-        tone: "danger",
-        title: "No se pudo guardar",
-        message:
-          "No se pudo guardar el formulario en este dispositivo. Reintentá; si el problema continúa, revisá espacio de almacenamiento y permisos del navegador.",
-      });
-    } finally {
-      setEnviando(false);
-    }
-  };
-
-  const onInvalid = (formErrors: FieldErrors<FormValues>) => {
-    const fields = Object.keys(formErrors) as FormFieldKey[];
-    if (fields.length > 0) {
-      const sectionsWithErrors = new Set(
-        FORM_SECTIONS.filter((section) =>
-          section.fields.some((f) => fields.includes(f)),
-        ).map((s) => s.id),
-      );
-      setOpenSections((prev) => new Set([...prev, ...sectionsWithErrors]));
-    }
-    if (fields.length > 0) {
-      const first = fields[0];
-      setBanner(
-        `Faltan campos por completar o corregir (${fields.length}). Revisá el formulario.`,
-      );
-      setSubmitFeedback(
-        `No se pudo enviar: ${fields.length} campo(s) por corregir.`,
-      );
-      setFocus(first);
-      return;
-    }
-    setBanner(
-      "El formulario tiene errores. Revisá los campos e intentá nuevamente.",
-    );
-    setSubmitFeedback("El formulario tiene errores.");
-  };
+  const { onValid, onInvalid } = useFormularioSubmit({
+    gps,
+    fotos,
+    formId,
+    idUsuario,
+    authUsername,
+    draftUserKey,
+    defaults,
+    setBanner,
+    setSubmitFeedback,
+    setEnvioModal,
+    setEnviando,
+    setFotos,
+    setFormId,
+    refreshPendientes,
+    reset,
+    setOpenSections,
+    setFocus,
+    toSafeUserId,
+    requiredFields: REQUIRED_FIELDS,
+  });
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-8 text-slate-900 sm:px-6">
@@ -523,116 +411,19 @@ export const FormularioPage = () => {
           </div>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-2xl border border-teal-100 bg-white/80 p-4 shadow-[0_18px_40px_-35px_rgba(15,118,110,0.6)]">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-teal-700">
-              GPS
-            </h2>
-            <p className="mt-2 text-sm font-medium text-slate-700">
-              Estado:{" "}
-              {estado === "buscando"
-                ? "Tomando ubicación..."
-                : estado === "ok"
-                  ? "Ubicación capturada"
-                  : estado === "error"
-                    ? "Error de GPS"
-                    : "Sin lectura"}
-            </p>
-            <p className="mt-1 text-sm text-slate-600">
-              {estado === "buscando"
-                ? (progreso ?? "Buscando señal GPS...")
-                : gps
-                  ? `OK · precisión ${gps.precision.toFixed(1)} m`
-                  : error
-                    ? `Error: ${error}`
-                    : "Sin ubicación registrada"}
-            </p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-3 border-teal-200 text-teal-800 hover:bg-teal-50"
-              onClick={solicitarGPS}
-              disabled={cargando}
-            >
-              {cargando ? "Buscando GPS…" : "Tomar ubicación"}
-            </Button>
-            {gps ? (
-              <div className="mt-4 overflow-hidden rounded-xl border border-teal-100 bg-slate-50">
-                {/* El embed de OSM incluye un pie con texto largo; se recorta visualmente. */}
-                <div className="h-48 overflow-hidden">
-                  <iframe
-                    title="Mapa de ubicación capturada"
-                    className="h-[calc(100%+36px)] w-full"
-                    src={buildMapUrl(gps.latitud, gps.longitud)}
-                    loading="lazy"
-                    style={{ marginBottom: "-36px" }}
-                  />
-                </div>
-                <div className="px-3 py-2 text-xs text-slate-700">
-                  Lat: {gps.latitud.toFixed(6)} · Lon: {gps.longitud.toFixed(6)}{" "}
-                  · Precisión: {gps.precision.toFixed(1)} m
-                </div>
-                <a
-                  className="block px-3 pb-3 text-xs font-medium text-teal-800 underline"
-                  href={buildExternalMapUrl(gps.latitud, gps.longitud)}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir ubicación en OpenStreetMap
-                </a>
-              </div>
-            ) : null}
-          </div>
-          <div className="rounded-2xl border border-amber-100 bg-white/80 p-4 shadow-[0_18px_40px_-35px_rgba(180,83,9,0.6)]">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-amber-700">
-              Pendientes
-            </h2>
-            <p className="mt-2 text-4xl font-semibold">{pendientes}</p>
-            <p className="text-sm text-slate-600">Formularios en cola local.</p>
-          </div>
-          <div className="rounded-2xl border border-rose-100 bg-white/80 p-4 shadow-[0_18px_40px_-35px_rgba(190,24,93,0.5)]">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-rose-700">
-              Errores sync
-            </h2>
-            <p className="mt-2 text-4xl font-semibold">{erroresSync}</p>
-            <p className="text-sm text-slate-600">
-              Registros con error de envío.
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-          <h2 className="text-sm font-semibold text-slate-900">
-            Últimos errores de sincronización
-          </h2>
-          {ultimosErrores.length === 0 ? (
-            <p className="mt-2 text-sm text-slate-500">
-              Sin errores recientes.
-            </p>
-          ) : (
-            <ul className="mt-3 space-y-2 text-sm">
-              {ultimosErrores.map((item) => (
-                <li
-                  key={item.id_formulario}
-                  className="rounded-xl border border-rose-100 bg-rose-50/40 p-3"
-                >
-                  <p className="font-medium text-slate-900">
-                    {item.id_formulario} · usuario {item.id_usuario}
-                  </p>
-                  <p className="text-slate-600">
-                    Intentos: {item.errores_sync}
-                    {item.fecha_intento
-                      ? ` · último: ${formatDateTime(item.fecha_intento)}`
-                      : ""}
-                  </p>
-                  <p className="text-rose-700">
-                    {item.ultimo_error ?? "Error no especificado"}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <FormularioOverviewPanel
+          estado={estado}
+          progreso={progreso}
+          gps={gps}
+          error={error}
+          cargando={cargando}
+          pendientes={pendientes}
+          erroresSync={erroresSync}
+          ultimosErrores={ultimosErrores}
+          onSolicitarGps={solicitarGPS}
+          buildMapUrl={buildMapUrl}
+          buildExternalMapUrl={buildExternalMapUrl}
+        />
 
         {banner ? (
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-800 shadow-sm">
@@ -665,118 +456,20 @@ export const FormularioPage = () => {
             </label>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-            <h2 className="text-sm font-semibold text-slate-900">
-              Fotografías (0 a 15)
-            </h2>
-            <p className="text-xs text-slate-500">
-              Podés seleccionar archivos o capturar desde la app. Se comprimen a
-              máx. 1280 px antes de guardar.
-            </p>
-            <p className="mt-1 text-xs text-slate-600">
-              Cargadas: {fotos.length}
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => pickerInputRef.current?.click()}
-              >
-                Elegir archivos
-              </Button>
-              {!cameraOpen ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void openCamera()}
-                >
-                  Abrir cámara
-                </Button>
-              ) : null}
-            </div>
-            <input
-              ref={pickerInputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              className="mt-3 hidden"
-              onChange={(e) => void onFotosChange(e)}
-            />
-            {cameraOpen ? (
-              <div className="fixed inset-0 z-[220] bg-black">
-                <video
-                  ref={cameraVideoRef}
-                  className="h-full w-full object-cover"
-                  playsInline
-                  muted
-                />
-                <div
-                  className="pointer-events-none absolute inset-0 bg-white transition-opacity duration-150"
-                  style={{ opacity: captureFlash ? 0.6 : 0 }}
-                />
-                <div
-                  className={`pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-emerald-500/90 px-4 py-2 text-xs font-semibold text-white shadow-lg transition-all duration-200 ${
-                    captureBadge
-                      ? "opacity-100 translate-y-0"
-                      : "opacity-0 -translate-y-2"
-                  }`}
-                >
-                  Foto capturada
-                </div>
-                <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 sm:flex-row sm:justify-end">
-                  <Button
-                    type="button"
-                    onClick={() => void captureFromCamera()}
-                  >
-                    Tomar foto
-                  </Button>
-                  <Button type="button" variant="outline" onClick={stopCamera}>
-                    Cerrar cámara
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-            {fotos.length ? (
-              <ul className="mt-3 space-y-2 text-sm text-slate-700">
-                {fotos.map((foto, index) => (
-                  <li
-                    key={`${foto.nombre_archivo}-${index}`}
-                    className="flex items-center justify-between gap-3"
-                  >
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setPreviewFoto({
-                          nombre_archivo: foto.nombre_archivo,
-                          src: foto.data,
-                        })
-                      }
-                      className="flex min-w-0 items-center gap-3 text-left"
-                    >
-                      <img
-                        src={foto.data}
-                        alt={foto.nombre_archivo}
-                        className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
-                      />
-                      <span className="truncate">{foto.nombre_archivo}</span>
-                    </button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => quitarFoto(index)}
-                    >
-                      Quitar
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mt-2 text-sm text-slate-500">
-                Aún no hay fotos cargadas.
-              </p>
-            )}
-          </div>
+          <FormularioFotosSection
+            fotos={fotos}
+            pickerInputRef={pickerInputRef}
+            cameraOpen={cameraOpen}
+            cameraVideoRef={cameraVideoRef}
+            captureFlash={captureFlash}
+            captureBadge={captureBadge}
+            onOpenCamera={() => void openCamera()}
+            onStopCamera={stopCamera}
+            onCaptureFromCamera={() => void captureFromCamera()}
+            onFotosChange={(e) => void onFotosChange(e)}
+            onQuitarFoto={quitarFoto}
+            onPreviewFoto={setPreviewFoto}
+          />
 
           <ImagePreviewModal
             image={previewFoto}

@@ -4,7 +4,7 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   test: {
     environment: "jsdom",
-    include: ["src/**/*.test.ts"],
+    include: ["src/**/*.test.{ts,tsx}"],
     coverage: {
       reporter: ["text", "html"],
     },

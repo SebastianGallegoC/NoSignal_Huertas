@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState } from 'react';
 import type { Control, ControllerRenderProps } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 
@@ -60,23 +60,24 @@ type InnerProps = {
 
 const SearchableSelectInner = ({ field, options, label, listId, error }: InnerProps) => {
   const [open, setOpen] = useState(false);
-  const [text, setText] = useState(() => labelForValue(String(field.value ?? ''), options));
+  const fieldValue = String(field.value ?? '');
+  const [text, setText] = useState(() => labelForValue(fieldValue, options));
 
   useEffect(() => {
-    setText(labelForValue(String(field.value ?? ''), options));
-  }, [field.value, options]);
+    setText(labelForValue(fieldValue, options));
+  }, [fieldValue, options]);
 
   const filtered = useMemo(() => filterOptions(options, text), [options, text]);
 
-  const commitOrRevert = useCallback(() => {
+  const commitOrRevert = () => {
     const resolved = resolveOption(text, options);
     if (resolved) {
       field.onChange(resolved.value);
       setText(labelForValue(resolved.value, options));
     } else {
-      setText(labelForValue(String(field.value ?? ''), options));
+      setText(labelForValue(fieldValue, options));
     }
-  }, [field.onChange, field.value, options, text]);
+  };
 
   return (
     <label className="flex flex-col text-sm font-medium text-slate-800">
@@ -106,7 +107,7 @@ const SearchableSelectInner = ({ field, options, label, listId, error }: InnerPr
             if (e.key === 'Escape') {
               e.preventDefault();
               setOpen(false);
-              setText(labelForValue(String(field.value ?? ''), options));
+              setText(labelForValue(fieldValue, options));
             }
             if (e.key === 'Enter' && open && filtered.length === 1) {
               e.preventDefault();

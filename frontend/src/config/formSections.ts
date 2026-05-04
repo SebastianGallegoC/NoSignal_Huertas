@@ -149,6 +149,5 @@ const missing = REQUIRED_FIELDS.filter((f) => !covered.has(f));
 const extra = [...covered].filter((f) => !(REQUIRED_FIELDS as readonly string[]).includes(f));
 
 if (import.meta.env.DEV && (missing.length > 0 || extra.length > 0)) {
-  // eslint-disable-next-line no-console
   console.error('FORM_SECTIONS desalineado con REQUIRED_FIELDS', { missing, extra });
 }

@@ -394,9 +394,6 @@ export const FormulariosDiligenciadosPage = () => {
                           </span>
                         ) : null}
                       </div>
-                      <p className="truncate font-mono text-xs text-slate-500">
-                        {row.id_formulario}
-                      </p>
                       <p className="font-medium text-slate-900">
                         Usuario: {tituloUsuario}
                       </p>

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { ChangeEvent } from "react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { Link } from "react-router-dom";
@@ -8,11 +7,16 @@ import {
   FormEnvioResultModal,
   type FormEnvioModalTone,
 } from "@/components/form/FormEnvioResultModal";
+import {
+  ImagePreviewModal,
+  type ImagePreview,
+} from "@/components/form/ImagePreviewModal";
 import { FormFieldRow } from "@/components/form/FormFieldRow";
 import { Button } from "@/components/ui/button";
 import { FORM_SECTIONS } from "@/config/formSections";
 import { USUARIOS_FORMULARIO } from "@/config/usuariosFormulario";
 import { useGPS } from "@/hooks/useGPS";
+import { useCameraCapture } from "@/hooks/useCameraCapture";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { formatDateTime } from "@/lib/formatDateTime";
 import type { OfflineForm } from "@/services/db";
@@ -30,8 +34,11 @@ import {
   listSyncErrors,
   syncPendingForms,
   type SyncErrorItem,
-  validateFormPayload,
 } from "@/services/sync";
+import {
+  joinValidationMessages,
+  validateOfflineFormPayload,
+} from "@/services/formValidation";
 import { randomUuid } from "@/lib/randomUuid";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
@@ -39,124 +46,6 @@ import {
   type FormFieldKey,
   type FormValues,
 } from "@/types/formFields";
-
-const describeValidationErrors = (codes: string[]): string => {
-  const parts = codes.map((code) => {
-    if (code === "gps_precision") {
-      return "GPS con precisión ≤ 100 m (usá “Tomar ubicación”).";
-    }
-    if (code === "fotos_count") {
-      return "Máximo 15 fotos comprimidas.";
-    }
-    if (code.startsWith("field_")) {
-      return `Campo obligatorio: ${code.replace("field_", "")}`;
-    }
-    if (code === "id_usuario_format") {
-      return "El id_usuario debe contener 3-64 caracteres alfanuméricos (._- permitidos).";
-    }
-    if (code === "edad_range") {
-      return "Edad fuera de rango (0-120).";
-    }
-    if (code === "telefono_format") {
-      return "Formato de teléfono inválido.";
-    }
-    if (code === "satisfaccion_range") {
-      return "Satisfacción debe estar entre 1 y 5.";
-    }
-    if (code === "fechas_visita_invalid") {
-      return "Las fechas de visita deben tener formato válido.";
-    }
-    if (code === "fechas_visita_order") {
-      return "Las fechas deben estar en orden: visita 1 <= visita 2 <= visita 3.";
-    }
-    if (code.startsWith("tri_")) {
-      return `Respuesta inválida en ${code.replace("tri_", "")}. Debe ser Si/No/NR.`;
-    }
-    return code;
-  });
-  return parts.join(" ");
-};
-
-type FotoPreview = {
-  nombre_archivo: string;
-  src: string;
-};
-
-const FotoPreviewModal = ({
-  foto,
-  onClose,
-}: {
-  foto: FotoPreview | null;
-  onClose: () => void;
-}) => {
-  useEffect(() => {
-    if (!foto) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [foto, onClose]);
-
-  if (!foto) {
-    return null;
-  }
-
-  return createPortal(
-    <div className="fixed inset-0 z-[230] flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
-        aria-label="Cerrar vista previa"
-        onClick={onClose}
-      />
-      <div className="relative z-10 flex w-full max-w-4xl flex-col gap-4 rounded-3xl bg-white p-4 shadow-2xl ring-1 ring-slate-200 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold text-slate-900">
-              {foto.nombre_archivo}
-            </h2>
-            <p className="text-sm text-slate-500">
-              Vista ampliada de la imagen
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
-          >
-            Cerrar
-          </button>
-        </div>
-        <div className="flex max-h-[70dvh] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
-          <img
-            src={foto.src}
-            alt={foto.nombre_archivo}
-            className="max-h-[70dvh] w-full object-contain"
-          />
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onClose}
-          className="w-full sm:w-auto"
-        >
-          Volver
-        </Button>
-      </div>
-    </div>,
-    document.body,
-  );
-};
 
 const buildExternalMapUrl = (latitud: number, longitud: number): string => {
   return `https://www.openstreetmap.org/?mlat=${latitud}&mlon=${longitud}#map=18/${latitud}/${longitud}`;
@@ -218,10 +107,7 @@ export const FormularioPage = () => {
   const [fotos, setFotos] = useState<
     Array<{ nombre_archivo: string; data: string }>
   >(() => loadedDraft?.fotos ?? []);
-  const [cameraOpen, setCameraOpen] = useState(false);
-  const [captureFlash, setCaptureFlash] = useState(false);
-  const [captureBadge, setCaptureBadge] = useState(false);
-  const [previewFoto, setPreviewFoto] = useState<FotoPreview | null>(null);
+  const [previewFoto, setPreviewFoto] = useState<ImagePreview | null>(null);
   const [formId, setFormId] = useState(
     () => loadedDraft?.formId ?? randomUuid(),
   );
@@ -241,10 +127,6 @@ export const FormularioPage = () => {
     () => new Set(["actividad"]),
   );
   const pickerInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
-  const cameraStreamRef = useRef<MediaStream | null>(null);
-  const captureFlashTimeoutRef = useRef<number | null>(null);
-  const captureBadgeTimeoutRef = useRef<number | null>(null);
 
   const {
     register,
@@ -390,177 +272,20 @@ export const FormularioPage = () => {
     event.target.value = "";
     await processIncomingFiles(files, false);
   };
-
-  const waitForVideoReady = (video: HTMLVideoElement): Promise<void> => {
-    if (
-      video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-      video.videoWidth > 0
-    ) {
-      return Promise.resolve();
-    }
-    return new Promise((resolve, reject) => {
-      const timeout = window.setTimeout(() => {
-        cleanup();
-        reject(new Error("video_not_ready"));
-      }, 2500);
-      const onReady = () => {
-        cleanup();
-        resolve();
-      };
-      const cleanup = () => {
-        window.clearTimeout(timeout);
-        video.removeEventListener("loadedmetadata", onReady);
-        video.removeEventListener("canplay", onReady);
-      };
-      video.addEventListener("loadedmetadata", onReady);
-      video.addEventListener("canplay", onReady);
-    });
-  };
-
-  const waitForVideoElement = async (): Promise<HTMLVideoElement | null> => {
-    for (let i = 0; i < 6; i += 1) {
-      const video = cameraVideoRef.current;
-      if (video) {
-        return video;
-      }
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-    }
-    return null;
-  };
-
-  const stopCamera = () => {
-    const stream = cameraStreamRef.current;
-    if (stream) {
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-      cameraStreamRef.current = null;
-    }
-    setCameraOpen(false);
-  };
-
-  const openCamera = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setBanner("Este navegador no permite capturar cámara desde la app.");
-      return;
-    }
-    try {
-      setCameraOpen(true);
-      const video = await waitForVideoElement();
-      if (!video) {
-        setBanner("No se pudo inicializar la vista de cámara.");
-        return;
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
-      video.srcObject = stream;
-      video.muted = true;
-      video.setAttribute("playsinline", "true");
-      await video.play();
-      await waitForVideoReady(video);
-      cameraStreamRef.current = stream;
-      setBanner(null);
-    } catch {
-      setBanner("No se pudo abrir la cámara. Verifica permisos del navegador.");
-      setCameraOpen(false);
-    }
-  };
-
-  const triggerCaptureFeedback = () => {
-    setCaptureFlash(true);
-    setCaptureBadge(true);
-    if (captureFlashTimeoutRef.current) {
-      window.clearTimeout(captureFlashTimeoutRef.current);
-    }
-    if (captureBadgeTimeoutRef.current) {
-      window.clearTimeout(captureBadgeTimeoutRef.current);
-    }
-    captureFlashTimeoutRef.current = window.setTimeout(() => {
-      setCaptureFlash(false);
-    }, 150);
-    captureBadgeTimeoutRef.current = window.setTimeout(() => {
-      setCaptureBadge(false);
-    }, 900);
-    if (navigator.vibrate) {
-      navigator.vibrate(30);
-    }
-  };
-
-  const captureFromCamera = async () => {
-    const video = cameraVideoRef.current;
-    if (!video) {
-      return;
-    }
-    try {
-      await waitForVideoReady(video);
-    } catch {
-      setBanner(
-        "La cámara aún no está lista. Espera un segundo e intenta de nuevo.",
-      );
-      return;
-    }
-
-    let blob: Blob | null = null;
-    const stream = cameraStreamRef.current;
-    const track = stream?.getVideoTracks?.()[0];
-    const ImageCaptureCtor = (
-      window as unknown as {
-        ImageCapture?: new (t: MediaStreamTrack) => {
-          grabFrame: () => Promise<ImageBitmap>;
-        };
-      }
-    ).ImageCapture;
-    if (track && ImageCaptureCtor) {
-      try {
-        const imageCapture = new ImageCaptureCtor(track);
-        const bitmap = await imageCapture.grabFrame();
-        const canvas = document.createElement("canvas");
-        canvas.width = bitmap.width;
-        canvas.height = bitmap.height;
-        const context = canvas.getContext("2d");
-        if (context) {
-          context.drawImage(bitmap, 0, 0);
-          blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob(resolve, "image/jpeg", 0.92);
-          });
-        }
-      } catch {
-        // Fallback a canvas con el frame del video.
-      }
-    }
-
-    if (!blob) {
-      const width = video.videoWidth || 1280;
-      const height = video.videoHeight || 720;
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) {
-        setBanner("No se pudo capturar la foto en este navegador.");
-        return;
-      }
-      context.drawImage(video, 0, 0, width, height);
-      blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", 0.92);
-      });
-    }
-
-    if (!blob) {
-      setBanner("No se pudo generar la imagen capturada.");
-      return;
-    }
-    const fileName = `captura_${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`;
-    const file = new File([blob], fileName, { type: "image/jpeg" });
-    triggerCaptureFeedback();
-    await processIncomingFiles([file], true);
-  };
+  const {
+    cameraOpen,
+    captureFlash,
+    captureBadge,
+    cameraVideoRef,
+    openCamera,
+    stopCamera,
+    captureFromCamera,
+  } = useCameraCapture({
+    onCapturedFile: async (file) => {
+      await processIncomingFiles([file], true);
+    },
+    setBanner,
+  });
 
   const quitarFoto = (index: number) => {
     setFotos((prev) => prev.filter((_, i) => i !== index));
@@ -625,34 +350,6 @@ export const FormularioPage = () => {
     setValue("y_segundos", latDms.segundos.toFixed(3));
   }, [gps, setValue]);
 
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (captureFlashTimeoutRef.current) {
-        window.clearTimeout(captureFlashTimeoutRef.current);
-      }
-      if (captureBadgeTimeoutRef.current) {
-        window.clearTimeout(captureBadgeTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!cameraOpen) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [cameraOpen]);
-
   const onValid = async (values: FormValues) => {
     setBanner(null);
     setSubmitFeedback("Validando formulario...");
@@ -688,12 +385,11 @@ export const FormularioPage = () => {
       estado_sincronizacion: "PENDIENTE",
     };
 
-    const validationErrors = validateFormPayload(payload);
-    if (validationErrors.length > 0) {
-      const detail = describeValidationErrors(validationErrors);
-      const fallback = validationErrors.join(", ");
+    const validationIssues = validateOfflineFormPayload(payload);
+    if (validationIssues.length > 0) {
       const message =
-        detail || fallback || "No se pudo enviar: hay validaciones pendientes.";
+        joinValidationMessages(validationIssues) ||
+        "No se pudo enviar: hay validaciones pendientes.";
       setBanner(message);
       setSubmitFeedback(message);
       return;
@@ -1082,8 +778,8 @@ export const FormularioPage = () => {
             )}
           </div>
 
-          <FotoPreviewModal
-            foto={previewFoto}
+          <ImagePreviewModal
+            image={previewFoto}
             onClose={() => setPreviewFoto(null)}
           />
 

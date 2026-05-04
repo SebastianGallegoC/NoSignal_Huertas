@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 
 import { FotoServidorAutenticada } from "@/components/form/FotoServidorAutenticada";
-import { Button } from "@/components/ui/button";
+import {
+  ImagePreviewModal,
+  type ImagePreview,
+} from "@/components/form/ImagePreviewModal";
 import { FORM_SECTIONS } from "@/config/formSections";
 import {
   fieldLabel,
@@ -50,105 +52,6 @@ export interface FormularioSnapshot {
 const buildMapLink = (lat: number, lon: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`;
 
-type FotoVista = {
-  nombre_archivo: string;
-  src: string;
-};
-
-function FotoModal({
-  foto,
-  onClose,
-}: {
-  foto: FotoVista | null;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    if (!foto) {
-      return;
-    }
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [foto, onClose]);
-
-  if (!foto) {
-    return null;
-  }
-
-  const handleDownload = () => {
-    const link = document.createElement("a");
-    link.href = foto.src;
-    link.download = foto.nombre_archivo || "foto.jpg";
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-  };
-
-  return createPortal(
-    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-      <button
-        type="button"
-        className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
-        aria-label="Cerrar vista previa"
-        onClick={onClose}
-      />
-      <div className="relative z-10 flex w-full max-w-4xl flex-col gap-4 rounded-3xl bg-white p-4 shadow-2xl ring-1 ring-slate-200 sm:p-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold text-slate-900">
-              {foto.nombre_archivo}
-            </h2>
-            <p className="text-sm text-slate-500">
-              Vista ampliada de la imagen
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-full px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
-          >
-            Cerrar
-          </button>
-        </div>
-        <div className="flex max-h-[70dvh] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
-          <img
-            src={foto.src}
-            alt={foto.nombre_archivo}
-            className="max-h-[70dvh] w-full object-contain"
-          />
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <Button
-            type="button"
-            onClick={handleDownload}
-            className="w-full bg-teal-700 text-white hover:bg-teal-800 sm:w-auto"
-          >
-            Descargar imagen
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            className="w-full sm:w-auto"
-          >
-            Volver
-          </Button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
 function ReadOnlySection({
   sectionTitle,
   fieldKeys,
@@ -192,7 +95,7 @@ export const FormularioRespuestaReadOnly = ({
   snapshot: FormularioSnapshot;
 }) => {
   const { datos_formulario: datos, gps, fotos = [] } = snapshot;
-  const [previewFoto, setPreviewFoto] = useState<FotoVista | null>(null);
+  const [previewFoto, setPreviewFoto] = useState<ImagePreview | null>(null);
   const [remoteSrcMap, setRemoteSrcMap] = useState<
     Record<string, string | null>
   >({});
@@ -212,7 +115,7 @@ export const FormularioRespuestaReadOnly = ({
     );
   }
 
-  const openPreview = (foto: FotoVista) => setPreviewFoto(foto);
+  const openPreview = (foto: ImagePreview) => setPreviewFoto(foto);
 
   const resolveRemoteSrc = (photoKey: string, src: string | null) => {
     setRemoteSrcMap((prev) => ({ ...prev, [photoKey]: src }));
@@ -331,7 +234,11 @@ export const FormularioRespuestaReadOnly = ({
         </section>
       ) : null}
 
-      <FotoModal foto={previewFoto} onClose={() => setPreviewFoto(null)} />
+      <ImagePreviewModal
+        image={previewFoto}
+        onClose={() => setPreviewFoto(null)}
+        showDownload
+      />
 
       <div className="space-y-2">
         {FORM_SECTIONS.map((section, idx) => (

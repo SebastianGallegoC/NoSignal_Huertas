@@ -20,3 +20,9 @@
 
 ## 5. Control de Versiones
 - **Commits Semánticos:** Seguir el estándar `feat:`, `fix:`, `docs:`, `refactor:`.
+- **Pull Requests:** Todo cambio debe pasar CI (`lint`, `build`, `tests`) antes de merge.
+
+## 6. Operación y DevOps
+- **Migraciones de DB:** Usar Alembic para cambios de esquema; evitar depender de creación automática en producción.
+- **Secretos:** Nunca dejar `JWT_SECRET`, credenciales DB o usuarios de auth con valores por defecto inseguros.
+- **Observabilidad:** Registrar errores 500 con contexto y mantener healthchecks de app/DB.

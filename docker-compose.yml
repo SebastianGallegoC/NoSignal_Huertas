@@ -39,7 +39,7 @@ services:
     environment:
       POSTGRES_DB: nosignal
       POSTGRES_USER: nosignal
-      POSTGRES_PASSWORD: nosignal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set_POSTGRES_PASSWORD}
     ports:
       - "5433:5432"
     volumes:
@@ -59,29 +59,34 @@ services:
     container_name: nosignal-backend
     restart: unless-stopped
     environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
       APP_NAME: "NoSignal API"
       API_V1_PREFIX: "/api/v1"
-      JWT_SECRET: "CHANGE_ME"
+      JWT_SECRET: ${JWT_SECRET:?set_JWT_SECRET}
       JWT_ALGORITHM: "HS256"
       JWT_EXPIRES_MINUTES: "480"
-      NOSIGNAL_AUTH_USERS: '{"demo":"demo"}'
+      NOSIGNAL_AUTH_USERS: ${NOSIGNAL_AUTH_USERS:?set_NOSIGNAL_AUTH_USERS}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://nosignal.site}
-      DATABASE_URL: "postgresql+asyncpg://nosignal:nosignal@db:5432/nosignal"
+      DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://nosignal:${POSTGRES_PASSWORD}@db:5432/nosignal}
       UPLOAD_ROOT: "uploads"
+      ALLOW_INSECURE_DEFAULTS: ${ALLOW_INSECURE_DEFAULTS:-false}
+      AUTO_CREATE_SCHEMA: ${AUTO_CREATE_SCHEMA:-false}
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')\"",
+        ]
+      interval: 20s
+      timeout: 5s
+      retries: 5
     volumes:
       - nosignal_uploads:/app/uploads
     networks:
       - nosignal-network
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=nosignal-network
-      - traefik.http.routers.nosignal-api.rule=PathPrefix(`/api`)
-      - traefik.http.routers.nosignal-api.entrypoints=web
-      - traefik.http.routers.nosignal-api.priority=100
-      - traefik.http.services.nosignal-api.loadbalancer.server.port=8000
 
   frontend:
     build:
@@ -93,15 +98,13 @@ services:
     restart: unless-stopped
     depends_on:
       - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
     networks:
       - nosignal-network
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=nosignal-network
-      - traefik.http.routers.nosignal-frontend.rule=PathPrefix(`/`)
-      - traefik.http.routers.nosignal-frontend.entrypoints=web
-      - traefik.http.routers.nosignal-frontend.priority=1
-      - traefik.http.services.nosignal-frontend.loadbalancer.server.port=80
 
 volumes:
   nosignal_db:

@@ -1,15 +1,26 @@
-from pydantic import Field, computed_field
+from pydantic import Field, computed_field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     app_name: str = "NoSignal API"
     api_v1_prefix: str = "/api/v1"
-    jwt_secret: str = "CHANGE_ME"
+    environment: str = Field(default="development", alias="ENVIRONMENT")
+    jwt_secret: str = Field(default="CHANGE_ME", alias="JWT_SECRET")
     jwt_algorithm: str = "HS256"
     jwt_expires_minutes: int = Field(default=480, alias="JWT_EXPIRES_MINUTES")
     database_url: str = "postgresql+asyncpg://user:pass@localhost:5432/nosignal"
     upload_root: str = "uploads"
+    auto_create_schema: bool = Field(
+        default=False,
+        alias="AUTO_CREATE_SCHEMA",
+        description="Solo desarrollo: crea tablas con SQLAlchemy al iniciar.",
+    )
+    allow_insecure_defaults: bool = Field(
+        default=False,
+        alias="ALLOW_INSECURE_DEFAULTS",
+        description="Permite secretos débiles solo para desarrollo local controlado.",
+    )
     auth_users_json: str = Field(
         default="{}",
         alias="NOSIGNAL_AUTH_USERS",
@@ -28,6 +39,20 @@ class Settings(BaseSettings):
     def cors_origins_list(self) -> list[str]:
         parts = [o.strip() for o in self.cors_origins.split(",") if o.strip()]
         return parts if parts else ["http://localhost:5173"]
+
+    @model_validator(mode="after")
+    def validate_security_defaults(self) -> "Settings":
+        env = self.environment.strip().lower()
+        if self.allow_insecure_defaults or env not in {"production", "staging"}:
+            return self
+        if self.jwt_secret.strip() in {"", "CHANGE_ME"} or len(self.jwt_secret.strip()) < 32:
+            raise ValueError(
+                "JWT_SECRET inseguro. Usa al menos 32 caracteres aleatorios o define "
+                "ALLOW_INSECURE_DEFAULTS=true solo en desarrollo local."
+            )
+        if not (self.auth_users_json or "").strip():
+            raise ValueError("NOSIGNAL_AUTH_USERS no puede estar vacío en producción.")
+        return self
 
 
 settings = Settings()

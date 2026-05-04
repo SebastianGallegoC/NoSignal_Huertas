@@ -26,7 +26,12 @@ export const FotoServidorAutenticada = ({
   const [failed, setFailed] = useState(false);
   const blobUrlRef = useRef<string | null>(null);
   const wrapRef = useRef<HTMLDivElement | null>(null);
+  const onSrcChangeRef = useRef<Props["onSrcChange"]>(onSrcChange);
   const [visible, setVisible] = useState(!loadDeferred);
+
+  useEffect(() => {
+    onSrcChangeRef.current = onSrcChange;
+  }, [onSrcChange]);
 
   useEffect(() => {
     if (!loadDeferred) {
@@ -56,7 +61,7 @@ export const FotoServidorAutenticada = ({
     }
     let cancelled = false;
     setSrc(null);
-    onSrcChange?.(null);
+    onSrcChangeRef.current?.(null);
     setFailed(false);
     if (blobUrlRef.current) {
       URL.revokeObjectURL(blobUrlRef.current);
@@ -88,11 +93,11 @@ export const FotoServidorAutenticada = ({
         }
         blobUrlRef.current = created;
         setSrc(created);
-        onSrcChange?.(created);
+        onSrcChangeRef.current?.(created);
       } catch {
         if (!cancelled) {
           setFailed(true);
-          onSrcChange?.(null);
+          onSrcChangeRef.current?.(null);
         }
       }
     };
@@ -105,9 +110,9 @@ export const FotoServidorAutenticada = ({
         URL.revokeObjectURL(blobUrlRef.current);
         blobUrlRef.current = null;
       }
-      onSrcChange?.(null);
+      onSrcChangeRef.current?.(null);
     };
-  }, [visible, formId, photoIndex, onSrcChange]);
+  }, [visible, formId, photoIndex]);
 
   const inner = failed ? (
     <div

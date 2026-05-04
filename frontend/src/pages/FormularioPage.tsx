@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ChangeEvent } from "react";
 import { useForm, type FieldErrors } from "react-hook-form";
 import { Link } from "react-router-dom";
@@ -76,6 +77,87 @@ const describeValidationErrors = (codes: string[]): string => {
   return parts.join(" ");
 };
 
+type FotoPreview = {
+  nombre_archivo: string;
+  src: string;
+};
+
+const FotoPreviewModal = ({
+  foto,
+  onClose,
+}: {
+  foto: FotoPreview | null;
+  onClose: () => void;
+}) => {
+  useEffect(() => {
+    if (!foto) {
+      return;
+    }
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [foto, onClose]);
+
+  if (!foto) {
+    return null;
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-[230] flex items-center justify-center p-4">
+      <button
+        type="button"
+        className="absolute inset-0 bg-slate-950/75 backdrop-blur-sm"
+        aria-label="Cerrar vista previa"
+        onClick={onClose}
+      />
+      <div className="relative z-10 flex w-full max-w-4xl flex-col gap-4 rounded-3xl bg-white p-4 shadow-2xl ring-1 ring-slate-200 sm:p-6">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="truncate text-lg font-semibold text-slate-900">
+              {foto.nombre_archivo}
+            </h2>
+            <p className="text-sm text-slate-500">
+              Vista ampliada de la imagen
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full px-3 py-1 text-sm font-medium text-slate-600 hover:bg-slate-100"
+          >
+            Cerrar
+          </button>
+        </div>
+        <div className="flex max-h-[70dvh] items-center justify-center overflow-hidden rounded-2xl bg-slate-100">
+          <img
+            src={foto.src}
+            alt={foto.nombre_archivo}
+            className="max-h-[70dvh] w-full object-contain"
+          />
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onClose}
+          className="w-full sm:w-auto"
+        >
+          Volver
+        </Button>
+      </div>
+    </div>,
+    document.body,
+  );
+};
+
 const buildExternalMapUrl = (latitud: number, longitud: number): string => {
   return `https://www.openstreetmap.org/?mlat=${latitud}&mlon=${longitud}#map=18/${latitud}/${longitud}`;
 };
@@ -137,6 +219,7 @@ export const FormularioPage = () => {
     Array<{ nombre_archivo: string; data: string }>
   >(() => loadedDraft?.fotos ?? []);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [previewFoto, setPreviewFoto] = useState<FotoPreview | null>(null);
   const [formId, setFormId] = useState(
     () => loadedDraft?.formId ?? randomUuid(),
   );
@@ -365,7 +448,11 @@ export const FormularioPage = () => {
         return;
       }
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" } },
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
         audio: false,
       });
       video.srcObject = stream;
@@ -911,14 +998,23 @@ export const FormularioPage = () => {
                     key={`${foto.nombre_archivo}-${index}`}
                     className="flex items-center justify-between gap-3"
                   >
-                    <div className="flex min-w-0 items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPreviewFoto({
+                          nombre_archivo: foto.nombre_archivo,
+                          src: foto.data,
+                        })
+                      }
+                      className="flex min-w-0 items-center gap-3 text-left"
+                    >
                       <img
                         src={foto.data}
                         alt={foto.nombre_archivo}
                         className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
                       />
                       <span className="truncate">{foto.nombre_archivo}</span>
-                    </div>
+                    </button>
                     <Button
                       type="button"
                       variant="outline"
@@ -936,6 +1032,11 @@ export const FormularioPage = () => {
               </p>
             )}
           </div>
+
+          <FotoPreviewModal
+            foto={previewFoto}
+            onClose={() => setPreviewFoto(null)}
+          />
 
           {FORM_SECTIONS.map((section) => (
             <details

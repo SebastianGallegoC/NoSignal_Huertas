@@ -219,6 +219,8 @@ export const FormularioPage = () => {
     Array<{ nombre_archivo: string; data: string }>
   >(() => loadedDraft?.fotos ?? []);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [captureFlash, setCaptureFlash] = useState(false);
+  const [captureBadge, setCaptureBadge] = useState(false);
   const [previewFoto, setPreviewFoto] = useState<FotoPreview | null>(null);
   const [formId, setFormId] = useState(
     () => loadedDraft?.formId ?? randomUuid(),
@@ -241,6 +243,8 @@ export const FormularioPage = () => {
   const pickerInputRef = useRef<HTMLInputElement | null>(null);
   const cameraVideoRef = useRef<HTMLVideoElement | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
+  const captureFlashTimeoutRef = useRef<number | null>(null);
+  const captureBadgeTimeoutRef = useRef<number | null>(null);
 
   const {
     register,
@@ -468,6 +472,26 @@ export const FormularioPage = () => {
     }
   };
 
+  const triggerCaptureFeedback = () => {
+    setCaptureFlash(true);
+    setCaptureBadge(true);
+    if (captureFlashTimeoutRef.current) {
+      window.clearTimeout(captureFlashTimeoutRef.current);
+    }
+    if (captureBadgeTimeoutRef.current) {
+      window.clearTimeout(captureBadgeTimeoutRef.current);
+    }
+    captureFlashTimeoutRef.current = window.setTimeout(() => {
+      setCaptureFlash(false);
+    }, 150);
+    captureBadgeTimeoutRef.current = window.setTimeout(() => {
+      setCaptureBadge(false);
+    }, 900);
+    if (navigator.vibrate) {
+      navigator.vibrate(30);
+    }
+  };
+
   const captureFromCamera = async () => {
     const video = cameraVideoRef.current;
     if (!video) {
@@ -534,6 +558,7 @@ export const FormularioPage = () => {
     }
     const fileName = `captura_${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`;
     const file = new File([blob], fileName, { type: "image/jpeg" });
+    triggerCaptureFeedback();
     await processIncomingFiles([file], true);
   };
 
@@ -603,6 +628,17 @@ export const FormularioPage = () => {
   useEffect(() => {
     return () => {
       stopCamera();
+    };
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (captureFlashTimeoutRef.current) {
+        window.clearTimeout(captureFlashTimeoutRef.current);
+      }
+      if (captureBadgeTimeoutRef.current) {
+        window.clearTimeout(captureBadgeTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -978,6 +1014,19 @@ export const FormularioPage = () => {
                   playsInline
                   muted
                 />
+                <div
+                  className="pointer-events-none absolute inset-0 bg-white transition-opacity duration-150"
+                  style={{ opacity: captureFlash ? 0.6 : 0 }}
+                />
+                <div
+                  className={`pointer-events-none absolute left-1/2 top-6 -translate-x-1/2 rounded-full bg-emerald-500/90 px-4 py-2 text-xs font-semibold text-white shadow-lg transition-all duration-200 ${
+                    captureBadge
+                      ? "opacity-100 translate-y-0"
+                      : "opacity-0 -translate-y-2"
+                  }`}
+                >
+                  Foto capturada
+                </div>
                 <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 sm:flex-row sm:justify-end">
                   <Button
                     type="button"

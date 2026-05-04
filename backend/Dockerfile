@@ -8,6 +8,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Migraciones (alembic upgrade head) y metadatos; sin esto no existe `alembic.ini` en la imagen.
+COPY alembic.ini .
+COPY alembic ./alembic
+
 COPY app ./app
 
 EXPOSE 8000

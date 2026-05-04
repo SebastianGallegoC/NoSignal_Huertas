@@ -39,10 +39,15 @@ docker compose up -d
 ```
 
 ## Migraciones (Alembic)
-En producción:
+Con Docker (recomendado en servidor; `WORKDIR` del contenedor es `/app`):
+```bash
+docker compose exec backend python -m alembic upgrade head
+```
+
+En la máquina host, solo si tenés el entorno Python del backend instalado:
 ```bash
 cd backend
-alembic upgrade head
+python -m alembic upgrade head
 ```
 
 En desarrollo rápido (no recomendado en producción):

@@ -526,8 +526,9 @@ export const FormularioPage = () => {
             ) : null}
             {banner ? <p className="text-xs text-slate-600">{banner}</p> : null}
             <p className="text-xs text-slate-500">
-              Validamos GPS, fotos y campos obligatorios antes de guardar en
-              Dexie. Con red, intentamos sincronizar de inmediato.
+              Validamos ubicación GPS y cantidad de fotos antes de guardar en
+              Dexie. El resto del cuestionario puede completarse después. Con
+              red, intentamos sincronizar de inmediato.
             </p>
           </div>
         </form>

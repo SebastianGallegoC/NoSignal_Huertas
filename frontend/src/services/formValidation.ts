@@ -25,14 +25,14 @@ function parseDateSafe(value: unknown): number | null {
   return Number.isNaN(ts) ? null : ts;
 }
 
+/**
+ * Validación de contenido del cuestionario cuando hay datos ingresados.
+ * No exige completar el formulario: el envío offline solo exige GPS (y fotos
+ * dentro de rango) vía `validateOfflineFormPayload`; el API acepta
+ * `datos_formulario` parcial o vacío.
+ */
 export const validateFormValues = (values: FormValues): ValidationIssue[] => {
   const issues: ValidationIssue[] = [];
-
-  for (const key of REQUIRED_FIELDS) {
-    if (isBlank(values[key])) {
-      issues.push({ code: `field_${key}`, message: `Campo obligatorio: ${key}.` });
-    }
-  }
 
   if (!isBlank(values.edad)) {
     const edad = Number(values.edad);

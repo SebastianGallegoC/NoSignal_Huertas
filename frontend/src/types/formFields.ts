@@ -1,3 +1,4 @@
+/** Todas las claves del formulario (persistencia y payload); el envío no las exige todas llenas. */
 export const REQUIRED_FIELDS = [
   'entidad_aportante',
   'tipo_organizacion_entidad_aportante',

@@ -175,8 +175,13 @@ export const SearchableSelect = ({ name, control, options, error, label }: Searc
       name={name}
       control={control}
       rules={{
-        validate: (v: string) =>
-          allowedValues.has(v) ? true : 'Elegí una opción de la lista',
+        validate: (v: string) => {
+          const t = String(v ?? "").trim();
+          if (t === "") {
+            return true;
+          }
+          return allowedValues.has(v) ? true : "Elegí una opción de la lista";
+        },
       }}
       render={({ field }) => (
         <SearchableSelectInner field={field} options={options} label={label} listId={listId} error={error} />

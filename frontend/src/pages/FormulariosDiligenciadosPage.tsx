@@ -724,6 +724,14 @@ export const FormulariosDiligenciadosPage = () => {
             <Button
               type="button"
               variant="outline"
+              onClick={() => window.location.reload()}
+              className="w-full sm:w-auto"
+            >
+              Recargar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
               onClick={() => void descargarExcelDeTodos()}
               disabled={descargandoTodosExcel}
               className="w-full sm:w-auto"
@@ -887,11 +895,6 @@ export const FormulariosDiligenciadosPage = () => {
                         {!row.onServer && !row.precargaSolo ? (
                           <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-800">
                             Solo este equipo
-                          </span>
-                        ) : null}
-                        {row.onServer && h ? (
-                          <span className="rounded-md bg-teal-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal-900">
-                            + copia local
                           </span>
                         ) : null}
                         {precargado ? (

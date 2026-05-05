@@ -96,6 +96,10 @@ export const FormularioRespuestaReadOnly = ({
   snapshot: FormularioSnapshot;
 }) => {
   const { datos_formulario: datos, gps, fotos = [] } = snapshot;
+  const fotosVisita1 = fotos.filter((f) => f.visita === 1);
+  const fotosVisita2 = fotos.filter((f) => f.visita === 2);
+  const fotosVisita3 = fotos.filter((f) => f.visita === 3);
+  const fotosSinVisita = fotos.filter((f) => f.visita == null);
   const [previewFoto, setPreviewFoto] = useState<ImagePreview | null>(null);
   const [remoteSrcMap, setRemoteSrcMap] = useState<
     Record<string, string | null>
@@ -129,7 +133,7 @@ export const FormularioRespuestaReadOnly = ({
           <h3 className="text-sm font-semibold text-slate-900">
             Ubicación GPS
           </h3>
-          <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
+          <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
             <div>
               <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
                 Latitud
@@ -141,16 +145,6 @@ export const FormularioRespuestaReadOnly = ({
                 Longitud
               </dt>
               <dd className="font-mono text-slate-900">{gps.longitud}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                Precisión (m)
-              </dt>
-              <dd className="font-mono text-slate-900">
-                {gps.precision != null && gps.precision > 0
-                  ? gps.precision
-                  : "—"}
-              </dd>
             </div>
           </dl>
           <a
@@ -169,74 +163,86 @@ export const FormularioRespuestaReadOnly = ({
           <h3 className="text-sm font-semibold text-slate-900">
             Fotos ({fotos.length})
           </h3>
-          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-            {fotos.map((f, idx) => (
-              <button
-                key={`${f.nombre_archivo}-${idx}`}
-                type="button"
-                onClick={() => {
-                  if (f.data) {
-                    openPreview({
-                      nombre_archivo: f.nombre_archivo,
-                      src: f.data,
-                    });
-                    return;
-                  }
-                  const photoKey = `${f.nombre_archivo}-${idx}`;
-                  const remoteSrc = remoteSrcMap[photoKey];
-                  if (remoteSrc) {
-                    openPreview({
-                      nombre_archivo: f.nombre_archivo,
-                      src: remoteSrc,
-                    });
-                  }
-                }}
-                className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left"
-              >
-                <figure className="overflow-hidden">
-                  {f.data ? (
-                    <img
-                      src={f.data}
-                      alt={f.nombre_archivo}
-                      className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
-                      loading="lazy"
-                    />
-                  ) : f.serverFormId != null && f.serverIndex != null ? (
-                    <FotoServidorAutenticada
-                      formId={f.serverFormId}
-                      photoIndex={f.serverIndex}
-                      alt={f.nombre_archivo}
-                      loadDeferred={f.serverIndex > 0}
-                      onSrcChange={(src) =>
-                        resolveRemoteSrc(`${f.nombre_archivo}-${idx}`, src)
-                      }
-                      className="transition-transform duration-200 group-hover:scale-[1.02]"
-                    />
-                  ) : (
-                    <div className="flex aspect-square flex-col items-center justify-center gap-1 bg-slate-100 p-2 text-center text-[11px] text-slate-600">
-                      <span className="font-medium text-slate-700">
-                        Sin vista previa
-                      </span>
-                      <span className="break-all font-mono text-[9px] leading-tight text-slate-500">
-                        {(f.path ?? f.nombre_archivo).split(/[/\\]/).pop()}
-                      </span>
-                    </div>
-                  )}
-                  <figcaption
-                    className="truncate px-1.5 py-1 text-center text-[10px] text-slate-600"
-                    title={f.nombre_archivo}
-                  >
-                    {f.nombre_archivo}
-                  </figcaption>
-                  {f.visita ? (
-                    <div className="pb-1 text-center text-[10px] font-semibold text-teal-800">
-                      Visita {f.visita}
-                    </div>
-                  ) : null}
-                </figure>
-              </button>
+          {[
+            { title: "Visita 1", items: fotosVisita1 },
+            { title: "Visita 2", items: fotosVisita2 },
+            { title: "Visita 3", items: fotosVisita3 },
+            { title: "Sin visita registrada", items: fotosSinVisita },
+          ]
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
+              <div key={group.title} className="mt-4">
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-600">
+                  {group.title} ({group.items.length})
+                </h4>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {group.items.map((f, idx) => (
+                    <button
+                      key={`${group.title}-${f.nombre_archivo}-${idx}`}
+                      type="button"
+                      onClick={() => {
+                        if (f.data) {
+                          openPreview({
+                            nombre_archivo: f.nombre_archivo,
+                            src: f.data,
+                          });
+                          return;
+                        }
+                        const photoKey = `${group.title}-${f.nombre_archivo}-${idx}`;
+                        const remoteSrc = remoteSrcMap[photoKey];
+                        if (remoteSrc) {
+                          openPreview({
+                            nombre_archivo: f.nombre_archivo,
+                            src: remoteSrc,
+                          });
+                        }
+                      }}
+                      className="group overflow-hidden rounded-lg border border-slate-200 bg-slate-50 text-left"
+                    >
+                      <figure className="overflow-hidden">
+                        {f.data ? (
+                          <img
+                            src={f.data}
+                            alt={f.nombre_archivo}
+                            className="aspect-square w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+                            loading="lazy"
+                          />
+                        ) : f.serverFormId != null && f.serverIndex != null ? (
+                          <FotoServidorAutenticada
+                            formId={f.serverFormId}
+                            photoIndex={f.serverIndex}
+                            alt={f.nombre_archivo}
+                            loadDeferred={f.serverIndex > 0}
+                            onSrcChange={(src) =>
+                              resolveRemoteSrc(
+                                `${group.title}-${f.nombre_archivo}-${idx}`,
+                                src,
+                              )
+                            }
+                            className="transition-transform duration-200 group-hover:scale-[1.02]"
+                          />
+                        ) : (
+                          <div className="flex aspect-square flex-col items-center justify-center gap-1 bg-slate-100 p-2 text-center text-[11px] text-slate-600">
+                            <span className="font-medium text-slate-700">
+                              Sin vista previa
+                            </span>
+                            <span className="break-all font-mono text-[9px] leading-tight text-slate-500">
+                              {(f.path ?? f.nombre_archivo).split(/[/\\]/).pop()}
+                            </span>
+                          </div>
+                        )}
+                        <figcaption
+                          className="truncate px-1.5 py-1 text-center text-[10px] text-slate-600"
+                          title={f.nombre_archivo}
+                        >
+                          {f.nombre_archivo}
+                        </figcaption>
+                      </figure>
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
-          </div>
         </section>
       ) : null}
 

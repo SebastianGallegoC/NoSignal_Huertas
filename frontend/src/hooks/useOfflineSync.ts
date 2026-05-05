@@ -13,7 +13,7 @@ export const useOfflineSync = (): void => {
 
     void runSync();
 
-    let onlineTimer: ReturnType<typeof setTimeout> | null = null;
+    let onlineTimer: number | null = null;
     const handleOnline = () => {
       if (onlineTimer != null) {
         window.clearTimeout(onlineTimer);

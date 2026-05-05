@@ -292,11 +292,15 @@ export const FormularioPage = () => {
     await refreshPendientes();
     setSubmitFeedback(null);
     if (result.failed > 0) {
+      const detail = result.first_error?.trim();
       setBanner(null);
       setEnvioModal({
         tone: "danger",
         title: "Error al sincronizar",
-        message: `No se pudo sincronizar ${result.failed} formulario(s). Revisá la sección «Errores sync» y reintentá cuando tengas conexión estable.`,
+        message:
+          detail && detail.length > 0
+            ? `No se pudo sincronizar ${result.failed} formulario(s). Detalle: ${detail}`
+            : `No se pudo sincronizar ${result.failed} formulario(s). Revisá la sección «Errores sync» y reintentá cuando tengas conexión estable.`,
       });
     } else if (result.sent > 0) {
       setBanner(null);
@@ -524,11 +528,6 @@ export const FormularioPage = () => {
               </p>
             ) : null}
             {banner ? <p className="text-xs text-slate-600">{banner}</p> : null}
-            <p className="text-xs text-slate-500">
-              Validamos ubicación GPS y cantidad de fotos antes de guardar en
-              Dexie. El resto del cuestionario puede completarse después. Con
-              red, intentamos sincronizar de inmediato.
-            </p>
           </div>
         </form>
       </div>

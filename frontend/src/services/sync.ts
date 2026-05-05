@@ -57,6 +57,7 @@ export interface SyncRunResult {
   sent: number;
   failed: number;
   skipped: number;
+  first_error?: string;
 }
 
 export const listSyncErrors = async (limit = 5): Promise<SyncErrorItem[]> => {
@@ -143,6 +144,15 @@ export const syncPendingForms = async (): Promise<SyncRunResult> => {
         } catch {
           detail = '';
         }
+        if (response.status === 422) {
+          console.error('sync 422 payload_rejected', {
+            id_formulario: form.id_formulario,
+            id_usuario: form.id_usuario,
+            gps_precision: form.gps?.precision,
+            fotos_count: Array.isArray(form.fotos) ? form.fotos.length : -1,
+            detail,
+          });
+        }
         const trimmed = detail.replace(/\s+/g, ' ').trim().slice(0, 800);
         throw new Error(trimmed ? `HTTP_${response.status}: ${trimmed}` : `HTTP_${response.status}`);
       }
@@ -161,6 +171,14 @@ export const syncPendingForms = async (): Promise<SyncRunResult> => {
       result.failed += 1;
       const errores_sync = (form.errores_sync ?? 0) + 1;
       const message = error instanceof Error ? error.message : 'sync_error';
+      if (!result.first_error) {
+        result.first_error = message;
+      }
+      console.error('sync attempt failed', {
+        id_formulario: form.id_formulario,
+        id_usuario: form.id_usuario,
+        message,
+      });
       await db.formularios.update(form.id_formulario, {
         estado_sincronizacion: 'ERROR',
         errores_sync,

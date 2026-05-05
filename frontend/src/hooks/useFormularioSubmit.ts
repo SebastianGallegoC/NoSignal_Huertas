@@ -167,11 +167,14 @@ export const useFormularioSubmit = ({
       } else {
         const result = await syncPendingForms();
         if (result.failed > 0) {
+          const detail = result.first_error?.trim();
           setEnvioModal({
             tone: "danger",
             title: "Guardado local; falló el envío al servidor",
             message:
-              "Hay conexión, pero la sincronización no se completó. Revisá «Errores sync» más abajo. Podés usar «Sincronizar ahora» cuando quieras reintentar.",
+              detail && detail.length > 0
+                ? `Hay conexión, pero la sincronización no se completó. Detalle: ${detail}`
+                : "Hay conexión, pero la sincronización no se completó. Revisá «Errores sync» más abajo. Podés usar «Sincronizar ahora» cuando quieras reintentar.",
             submittedForm: payload,
           });
         } else if (result.sent > 0) {

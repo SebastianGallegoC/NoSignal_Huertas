@@ -58,6 +58,7 @@ function App() {
           }
         />
         <Route path="/" element={<Navigate to="/inicio" replace />} />
+        <Route path="*" element={<Navigate to="/inicio" replace />} />
       </Routes>
     </Suspense>
   );

@@ -32,7 +32,8 @@ registerRoute(
     url.origin === self.location.origin &&
     ['style', 'script', 'worker'].includes(request.destination),
   new StaleWhileRevalidate({
-    cacheName: 'nosignal-static-v1',
+    // Bump tras cambios de chunks/rutas para no mezclar JS viejo con index nuevo.
+    cacheName: 'nosignal-static-v2',
   }),
 );
 

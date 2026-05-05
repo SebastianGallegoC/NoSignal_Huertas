@@ -1,4 +1,5 @@
 import type { FormularioSnapshot } from "@/components/form/FormularioRespuestaReadOnly";
+import { parseISODate } from "@/lib/formatDateTime";
 import type { FormReadItem } from "@/services/api";
 import type { HistorialForm, PrecargaForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormValues } from "@/types/formFields";
@@ -158,16 +159,16 @@ export function getFechaReferenciaEnvio(row: DisplayRow): number {
   const h = row.historial;
   const s = row.server;
   if (h?.fecha_envio) {
-    return Date.parse(h.fecha_envio);
+    return parseISODate(h.fecha_envio);
   }
   if (s?.fecha_hora) {
-    return Date.parse(s.fecha_hora);
+    return parseISODate(s.fecha_hora);
   }
   if (h?.fecha_hora) {
-    return Date.parse(h.fecha_hora);
+    return parseISODate(h.fecha_hora);
   }
   if (row.precargaSolo?.fecha_precarga) {
-    return Date.parse(row.precargaSolo.fecha_precarga);
+    return parseISODate(row.precargaSolo.fecha_precarga);
   }
   return NaN;
 }

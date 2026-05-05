@@ -53,3 +53,12 @@ export function parseISODate(dateString: string | null | undefined): number {
   // Has timezone offset - parse as-is
   return new Date(trimmed).getTime();
 }
+
+/** Formatea un instante ISO (p. ej. desde PostgreSQL/FastAPI) para mostrar en UI. */
+export function formatISODateTimeForDisplay(iso: string | null | undefined): string {
+  if (iso == null || String(iso).trim() === '') {
+    return '—';
+  }
+  const ts = parseISODate(String(iso).trim());
+  return Number.isNaN(ts) ? '—' : formatDateTimeNoSeconds(ts);
+}

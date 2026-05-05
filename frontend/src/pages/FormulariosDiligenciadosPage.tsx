@@ -19,7 +19,7 @@ import {
 } from "@/components/form/FormularioRespuestaReadOnly";
 import { Button } from "@/components/ui/button";
 import { ACCESS_TOKEN_KEY } from "@/lib/authStorage";
-import { formatDateTimeNoSeconds } from "@/lib/formatDateTime";
+import { formatDateTimeNoSeconds, formatISODateTimeForDisplay } from "@/lib/formatDateTime";
 import {
   deleteFormFromApi,
   fetchFormPhotoDataUrl,
@@ -1011,13 +1011,14 @@ export const FormulariosDiligenciadosPage = () => {
               const tituloUsuario = nombreBenef || "No diligenciado";
               const refTs = getFechaReferenciaEnvio(row);
               const tituloFechaLabel = formatDateTimeNoSeconds(refTs);
-              const ultimaActualizacionLabel =
+              const ultimaActualizacionIso =
                 row.server?.fecha_actualizacion ??
                 row.historial?.fecha_actualizacion ??
                 row.historial?.fecha_hora ??
                 row.server?.fecha_hora ??
-                row.precargaSolo?.fecha_precarga ??
-                "—";
+                row.precargaSolo?.fecha_precarga;
+              const ultimaActualizacionLabel =
+                formatISODateTimeForDisplay(ultimaActualizacionIso);
               const effectiveDetailSource: DetailSourceKind =
                 isOpen && detailSource != null
                   ? detailSource

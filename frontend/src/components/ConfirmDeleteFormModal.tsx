@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 
@@ -7,7 +7,10 @@ type Props = {
   title: string;
   description: ReactNode;
   confirmLabel?: string;
-  onConfirm: () => void;
+  passwordLabel?: string;
+  passwordPlaceholder?: string;
+  passwordError?: string | null;
+  onConfirm: (password: string) => void;
   onCancel: () => void;
   confirming?: boolean;
 };
@@ -17,10 +20,15 @@ export function ConfirmDeleteFormModal({
   title,
   description,
   confirmLabel = "Eliminar",
+  passwordLabel = "Contraseña",
+  passwordPlaceholder = "Ingresá tu contraseña",
+  passwordError = null,
   onConfirm,
   onCancel,
   confirming = false,
 }: Props) {
+  const [password, setPassword] = useState("");
+
   useEffect(() => {
     if (!open) {
       return;
@@ -30,6 +38,13 @@ export function ConfirmDeleteFormModal({
     return () => {
       document.body.style.overflow = prev;
     };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setPassword("");
   }, [open]);
 
   useEffect(() => {
@@ -81,6 +96,21 @@ export function ConfirmDeleteFormModal({
         <div className="mt-3 text-sm leading-relaxed text-slate-600">
           {description}
         </div>
+        <label className="mt-4 block text-sm font-medium text-slate-800">
+          {passwordLabel}
+          <input
+            type="password"
+            value={password}
+            autoComplete="current-password"
+            placeholder={passwordPlaceholder}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={confirming}
+            className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-teal-400 focus:ring-2 focus:ring-teal-100"
+          />
+        </label>
+        {passwordError ? (
+          <p className="mt-2 text-xs text-rose-700">{passwordError}</p>
+        ) : null}
         <div className="mt-6 flex flex-wrap justify-end gap-2">
           <Button
             type="button"
@@ -93,8 +123,8 @@ export function ConfirmDeleteFormModal({
           <Button
             type="button"
             variant="outline"
-            onClick={onConfirm}
-            disabled={confirming}
+            onClick={() => onConfirm(password)}
+            disabled={confirming || password.trim() === ""}
             className="border-rose-200 text-rose-800 hover:bg-rose-50"
           >
             {confirming ? "Eliminando…" : confirmLabel}

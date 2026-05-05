@@ -19,6 +19,7 @@ import { randomUuid } from "@/lib/randomUuid";
 import {
   deleteFormFromApi,
   fetchFormPhotoDataUrl,
+  loginApi,
   listFormsFromApi,
   type FormReadItem,
 } from "@/services/api";
@@ -76,6 +77,9 @@ export const FormulariosDiligenciadosPage = () => {
     () => typeof navigator !== "undefined" && navigator.onLine,
   );
   const [pendingDeleteRow, setPendingDeleteRow] = useState<DisplayRow | null>(
+    null,
+  );
+  const [deletePasswordError, setDeletePasswordError] = useState<string | null>(
     null,
   );
 
@@ -427,6 +431,7 @@ export const FormulariosDiligenciadosPage = () => {
 
   const solicitarEliminar = useCallback((row: DisplayRow) => {
     setEliminarError(null);
+    setDeletePasswordError(null);
     if (!navigator.onLine) {
       setEliminarError(
         "Solo podés eliminar formularios con conexión a internet.",
@@ -436,12 +441,18 @@ export const FormulariosDiligenciadosPage = () => {
     setPendingDeleteRow(row);
   }, []);
 
-  const ejecutarEliminacionConfirmada = useCallback(async () => {
+  const ejecutarEliminacionConfirmada = useCallback(async (password: string) => {
     const row = pendingDeleteRow;
     if (!row) {
       return;
     }
     setEliminarError(null);
+    setDeletePasswordError(null);
+    const pass = password.trim();
+    if (!pass) {
+      setDeletePasswordError("Ingresá tu contraseña para continuar.");
+      return;
+    }
     if (!navigator.onLine) {
       setEliminarError(
         "Perdiste la conexión. Volvé a conectarte para eliminar.",
@@ -452,6 +463,16 @@ export const FormulariosDiligenciadosPage = () => {
       typeof localStorage !== "undefined"
         ? localStorage.getItem(ACCESS_TOKEN_KEY)
         : null;
+    if (!authUsername) {
+      setDeletePasswordError("No hay una sesión activa para validar contraseña.");
+      return;
+    }
+    try {
+      await loginApi(authUsername, pass);
+    } catch {
+      setDeletePasswordError("Contraseña incorrecta.");
+      return;
+    }
     const puedeBorrarEnServidor = row.onServer && !!token;
     setEliminandoId(row.id_formulario);
     try {
@@ -482,12 +503,13 @@ export const FormulariosDiligenciadosPage = () => {
     } finally {
       setEliminandoId(null);
     }
-  }, [loadList, pendingDeleteRow, selectedId]);
+  }, [authUsername, loadList, pendingDeleteRow, selectedId]);
 
   const cancelarEliminacionPendiente = useCallback(() => {
     if (eliminandoId) {
       return;
     }
+    setDeletePasswordError(null);
     setPendingDeleteRow(null);
   }, [eliminandoId]);
 
@@ -853,8 +875,9 @@ export const FormulariosDiligenciadosPage = () => {
         open={!!pendingDeleteRow}
         title="¿Eliminar este formulario?"
         description={deleteModalDescription}
+        passwordError={deletePasswordError}
         onCancel={cancelarEliminacionPendiente}
-        onConfirm={() => void ejecutarEliminacionConfirmada()}
+        onConfirm={(password) => void ejecutarEliminacionConfirmada(password)}
         confirming={
           !!pendingDeleteRow &&
           eliminandoId === pendingDeleteRow.id_formulario

@@ -132,14 +132,21 @@ describe("buildMatrizCaracterizacionRow", () => {
 });
 
 describe("matrizCaracterizacionFilename", () => {
-  it("incluye id saneado, fecha del día y extensión xlsx", () => {
+  it("usa beneficiario y fecha_hora del envío en el nombre", () => {
     const f = minimalForm();
-    f.id_formulario = "abc::123";
+    f.fecha_hora = "2026-05-05T17:42:10.000Z";
+    f.datos_formulario = {
+      nombres_apellidos_beneficiario: "María José Pérez",
+    };
     const name = matrizCaracterizacionFilename(f);
-    expect(name).toMatch(/^Matriz_caracterizacion_/);
-    expect(name).toMatch(/\.xlsx$/);
-    expect(name).toContain("abc_123");
-    expect(name).toMatch(/\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(name).toBe("Maria_Jose_Perez-2026-05-05_17-42.xlsx");
+  });
+
+  it("usa fallback cuando no hay beneficiario o fecha válida", () => {
+    const f = minimalForm();
+    f.fecha_hora = "fecha-rara";
+    f.datos_formulario = {};
+    expect(matrizCaracterizacionFilename(f)).toBe("sin_beneficiario-sin_fecha.xlsx");
   });
 });
 
@@ -255,7 +262,7 @@ describe("downloadMatrizCaracterizacionXlsx", () => {
     await downloadMatrizCaracterizacionXlsx(f);
 
     expect(createSpy).toHaveBeenCalled();
-    expect(mockAnchor.download).toMatch(/Matriz_caracterizacion_.*\.xlsx$/);
+    expect(mockAnchor.download).toBe("sin_beneficiario-2026-05-05_12-00.xlsx");
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(appendSpy).toHaveBeenCalledWith(mockAnchor);
     expect(removeSpy).toHaveBeenCalledTimes(1);

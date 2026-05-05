@@ -244,9 +244,31 @@ export function buildMatrizCaracterizacionRow(form: OfflineForm): string[] {
 }
 
 export function matrizCaracterizacionFilename(form: OfflineForm): string {
-  const safeId = form.id_formulario.replace(/[^\w-]+/g, "_").slice(0, 36);
-  const day = new Date().toISOString().slice(0, 10);
-  return `Matriz_caracterizacion_${safeId}_${day}.xlsx`;
+  const datos = form.datos_formulario as Record<string, unknown>;
+  const rawBenef = String(datos.nombres_apellidos_beneficiario ?? "").trim();
+  const safeBenef =
+    rawBenef
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^A-Za-z0-9._-]+/g, "_")
+      .replace(/_+/g, "_")
+      .replace(/^_+|_+$/g, "")
+      .slice(0, 60) || "sin_beneficiario";
+
+  const sendDate = Date.parse(form.fecha_hora);
+  const safeFecha = Number.isNaN(sendDate)
+    ? "sin_fecha"
+    : (() => {
+        const d = new Date(sendDate);
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(d.getUTCDate()).padStart(2, "0");
+        const hh = String(d.getUTCHours()).padStart(2, "0");
+        const mm = String(d.getUTCMinutes()).padStart(2, "0");
+        return `${y}-${m}-${day}_${hh}-${mm}`;
+      })();
+
+  return `${safeBenef}-${safeFecha}.xlsx`;
 }
 
 export async function buildMatrizCaracterizacionWorkbook(

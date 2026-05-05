@@ -167,9 +167,9 @@ export const listFormsFromApi = async (limit = 200): Promise<FormReadItem[]> => 
     data: {
       limit,
       count: items.length,
-      cacheControl: response.headers.get("cache-control"),
-      age: response.headers.get("age"),
-      date: response.headers.get("date"),
+      cacheControl: response.headers?.get?.("cache-control") ?? null,
+      age: response.headers?.get?.("age") ?? null,
+      date: response.headers?.get?.("date") ?? null,
       probes: items.slice(0, 80).map((it) => ({
         idSuf: idSuffix(it.id_formulario),
         ben: beneficiaryFieldProbe(it.datos_formulario),

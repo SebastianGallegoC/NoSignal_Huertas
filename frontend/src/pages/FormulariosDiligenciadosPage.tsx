@@ -345,6 +345,14 @@ export const FormulariosDiligenciadosPage = () => {
         });
         // #endregion
 
+        const fotosConVisita = serverFotos.map((sf, i) => {
+          const v = localFotos[i]?.visita;
+          if (v === 1 || v === 2 || v === 3) {
+            return { ...sf, visita: v };
+          }
+          return sf;
+        });
+
         setDetailSnapshot({
           datos_formulario: (row.server.datos_formulario ?? {}) as Record<
             string,
@@ -355,7 +363,7 @@ export const FormulariosDiligenciadosPage = () => {
             longitud: row.server.longitud,
             precision: row.server.precision ?? null,
           },
-          fotos: serverFotos,
+          fotos: fotosConVisita,
         });
         setDetailSource("server");
       } else if (precarga) {

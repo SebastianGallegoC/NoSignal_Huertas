@@ -182,6 +182,7 @@ export const useFormularioSubmit = ({
           submittedForm: payload,
         });
       } else {
+        setSubmitFeedback("Enviando al servidor (puede tardar si hay muchas fotos)…");
         const result = await syncPendingForms();
         if (result.failed > 0) {
           const detail = result.first_error?.trim();

@@ -297,7 +297,8 @@ export const FormularioPage = () => {
         setBanner("Seleccioná visita 1, 2 o 3 antes de tomar fotos.");
         return;
       }
-      await processIncomingFiles([file], visitaFotoSeleccionada, true);
+      // Sin descarga automática: en móvil suele bloquearse o demorar y no aporta al envío.
+      await processIncomingFiles([file], visitaFotoSeleccionada, false);
     },
     setBanner,
   });

@@ -11,7 +11,7 @@ type UseCameraCaptureResult = {
   captureFlash: boolean;
   captureBadge: boolean;
   cameraVideoRef: MutableRefObject<HTMLVideoElement | null>;
-  openCamera: () => Promise<void>;
+  openCamera: () => void;
   stopCamera: () => void;
   captureFromCamera: () => Promise<void>;
 };
@@ -39,7 +39,7 @@ export const useCameraCapture = ({
       const timeout = window.setTimeout(() => {
         cleanup();
         reject(new Error("video_not_ready"));
-      }, 2500);
+      }, 8000);
       const onReady = () => {
         cleanup();
         resolve();
@@ -54,59 +54,103 @@ export const useCameraCapture = ({
     });
   };
 
-  const waitForVideoElement = async (): Promise<HTMLVideoElement | null> => {
-    for (let i = 0; i < 6; i += 1) {
-      const video = cameraVideoRef.current;
-      if (video) {
-        return video;
-      }
-      await new Promise((resolve) => window.requestAnimationFrame(resolve));
-    }
-    return null;
-  };
-
   const stopCamera = useCallback(() => {
-    const stream = cameraStreamRef.current;
-    if (stream) {
-      for (const track of stream.getTracks()) {
-        track.stop();
-      }
-      cameraStreamRef.current = null;
-    }
     setCameraOpen(false);
   }, []);
 
-  const openCamera = useCallback(async () => {
+  /** Monta el stream después de que React pinte el <video> (evita carrera con openCamera). */
+  useEffect(() => {
+    if (!cameraOpen) {
+      const stream = cameraStreamRef.current;
+      if (stream) {
+        for (const track of stream.getTracks()) {
+          track.stop();
+        }
+        cameraStreamRef.current = null;
+      }
+      const video = cameraVideoRef.current;
+      if (video) {
+        video.srcObject = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    const run = async () => {
+      for (let i = 0; i < 40; i += 1) {
+        if (cancelled) {
+          return;
+        }
+        const video = cameraVideoRef.current;
+        if (video) {
+          let stream: MediaStream;
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+              audio: false,
+            });
+          } catch {
+            setBanner(
+              "No se pudo abrir la cámara. Verificá permisos del navegador.",
+            );
+            setCameraOpen(false);
+            return;
+          }
+          if (cancelled) {
+            stream.getTracks().forEach((t) => t.stop());
+            return;
+          }
+          video.srcObject = stream;
+          video.muted = true;
+          video.setAttribute("playsinline", "true");
+          try {
+            await video.play();
+            await waitForVideoReady(video);
+          } catch {
+            stream.getTracks().forEach((t) => t.stop());
+            setBanner(
+              "La cámara no mostró imagen. Probá cerrar y abrir de nuevo.",
+            );
+            setCameraOpen(false);
+            return;
+          }
+          cameraStreamRef.current = stream;
+          setBanner(null);
+          return;
+        }
+        await new Promise<void>((r) => {
+          requestAnimationFrame(() => r());
+        });
+      }
+      setBanner("No se pudo inicializar la vista de cámara.");
+      setCameraOpen(false);
+    };
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setBanner("Este navegador no permite capturar cámara desde la app.");
+      setCameraOpen(false);
+      return;
+    }
+
+    void run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cameraOpen, setBanner]);
+
+  const openCamera = useCallback(() => {
     if (!navigator.mediaDevices?.getUserMedia) {
       setBanner("Este navegador no permite capturar cámara desde la app.");
       return;
     }
-    try {
-      setCameraOpen(true);
-      const video = await waitForVideoElement();
-      if (!video) {
-        setBanner("No se pudo inicializar la vista de cámara.");
-        return;
-      }
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
-        },
-        audio: false,
-      });
-      video.srcObject = stream;
-      video.muted = true;
-      video.setAttribute("playsinline", "true");
-      await video.play();
-      await waitForVideoReady(video);
-      cameraStreamRef.current = stream;
-      setBanner(null);
-    } catch {
-      setBanner("No se pudo abrir la cámara. Verifica permisos del navegador.");
-      setCameraOpen(false);
-    }
+    setBanner(null);
+    setCameraOpen(true);
   }, [setBanner]);
 
   const triggerCaptureFeedback = () => {
@@ -138,7 +182,7 @@ export const useCameraCapture = ({
       await waitForVideoReady(video);
     } catch {
       setBanner(
-        "La cámara aún no está lista. Espera un segundo e intenta de nuevo.",
+        "La cámara aún no está lista. Esperá un segundo e intentá de nuevo.",
       );
       return;
     }
@@ -164,9 +208,10 @@ export const useCameraCapture = ({
         if (context) {
           context.drawImage(bitmap, 0, 0);
           blob = await new Promise<Blob | null>((resolve) => {
-            canvas.toBlob(resolve, "image/jpeg", 0.92);
+            canvas.toBlob(resolve, "image/jpeg", 0.88);
           });
         }
+        bitmap.close?.();
       } catch {
         // fallback a canvas con el frame del video
       }
@@ -185,7 +230,7 @@ export const useCameraCapture = ({
       }
       context.drawImage(video, 0, 0, width, height);
       blob = await new Promise<Blob | null>((resolve) => {
-        canvas.toBlob(resolve, "image/jpeg", 0.92);
+        canvas.toBlob(resolve, "image/jpeg", 0.88);
       });
     }
 

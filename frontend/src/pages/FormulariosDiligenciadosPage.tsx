@@ -28,7 +28,7 @@ import {
   type FormReadItem,
 } from "@/services/api";
 import { saveFormDraft, type FormDraftV1 } from "@/services/formDraftStorage";
-import { db, type HistorialForm, type PrecargaForm } from "@/services/db";
+import { db, type FotoForm, type HistorialForm, type PrecargaForm } from "@/services/db";
 import {
   downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
@@ -51,6 +51,26 @@ import {
   type DisplayRow,
 } from "@/services/formHistory";
 import { useAuthStore } from "@/store/useAuthStore";
+
+type FotoSnapshotLike = {
+  nombre_archivo: string;
+  data?: string;
+  visita?: unknown;
+};
+
+/** Preserva visita 1–3; si falta (p. ej. legado o map previo), asume 1 para pasar validación al enviar. */
+function fotosConVisitaDesdeDetalle(source: FotoSnapshotLike[]): FotoForm[] {
+  const out: FotoForm[] = [];
+  for (const f of source) {
+    if (!f.data?.trim()) {
+      continue;
+    }
+    const visita: 1 | 2 | 3 =
+      f.visita === 1 || f.visita === 2 || f.visita === 3 ? f.visita : 1;
+    out.push({ nombre_archivo: f.nombre_archivo, data: f.data, visita });
+  }
+  return out;
+}
 
 const estadoClass: Record<HistorialForm["estado"], string> = {
   PENDIENTE: "text-amber-700",
@@ -532,13 +552,7 @@ export const FormulariosDiligenciadosPage = () => {
       }
       const formValues = buildFormValuesFromSnapshot(detailSnapshot);
       const sourceFotos = detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [];
-      const fotos = sourceFotos
-        .map((f) =>
-          f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null,
-        )
-        .filter(
-          (f): f is { nombre_archivo: string; data: string } => f !== null,
-        );
+      const fotos = fotosConVisitaDesdeDetalle(sourceFotos);
       const gps = detailSnapshot.gps
         ? {
             latitud: detailSnapshot.gps.latitud,
@@ -588,13 +602,9 @@ export const FormulariosDiligenciadosPage = () => {
       setDescargaExcelError(null);
       setDescargandoExcelId(row.id_formulario);
       try {
-        const fotos = (detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [])
-          .map((f) =>
-            f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null,
-          )
-          .filter(
-            (f): f is { nombre_archivo: string; data: string } => f !== null,
-          );
+        const fotos = fotosConVisitaDesdeDetalle(
+          detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [],
+        );
 
         const fallbackGps = row.server
           ? {

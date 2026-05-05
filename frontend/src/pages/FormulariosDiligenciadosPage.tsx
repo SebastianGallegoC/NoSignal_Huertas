@@ -25,6 +25,10 @@ import {
 import { saveFormDraft, type FormDraftV1 } from "@/services/formDraftStorage";
 import { db, type HistorialForm, type PrecargaForm } from "@/services/db";
 import {
+  downloadMatrizCaracterizacionBulkXlsx,
+  downloadMatrizCaracterizacionXlsx,
+} from "@/services/matrizCaracterizacionExport";
+import {
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
 } from "@/services/formLocalDelete";
@@ -70,6 +74,13 @@ export const FormulariosDiligenciadosPage = () => {
     null,
   );
   const [precargaError, setPrecargaError] = useState<string | null>(null);
+  const [descargandoExcelId, setDescargandoExcelId] = useState<string | null>(
+    null,
+  );
+  const [descargaExcelError, setDescargaExcelError] = useState<string | null>(
+    null,
+  );
+  const [descargandoTodosExcel, setDescargandoTodosExcel] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [eliminarError, setEliminarError] = useState<string | null>(null);
   const [online, setOnline] = useState(
@@ -434,6 +445,147 @@ export const FormulariosDiligenciadosPage = () => {
     [authUsername, detailPrecarga, detailSnapshot, navigate],
   );
 
+  const descargarExcelDelRegistro = useCallback(
+    async (row: DisplayRow) => {
+      if (!detailSnapshot) {
+        setDescargaExcelError(
+          "No hay datos cargados del formulario para exportar.",
+        );
+        return;
+      }
+      setDescargaExcelError(null);
+      setDescargandoExcelId(row.id_formulario);
+      try {
+        const fotos = (detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [])
+          .map((f) =>
+            f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null,
+          )
+          .filter(
+            (f): f is { nombre_archivo: string; data: string } => f !== null,
+          );
+
+        const fallbackGps = row.server
+          ? {
+              latitud: row.server.latitud,
+              longitud: row.server.longitud,
+              precision: row.server.precision ?? 1,
+            }
+          : null;
+        const gps = detailSnapshot.gps
+          ? {
+              latitud: detailSnapshot.gps.latitud,
+              longitud: detailSnapshot.gps.longitud,
+              precision:
+                typeof detailSnapshot.gps.precision === "number" &&
+                detailSnapshot.gps.precision > 0
+                  ? detailSnapshot.gps.precision
+                  : 1,
+            }
+          : fallbackGps;
+        if (!gps) {
+          setDescargaExcelError(
+            "No hay coordenadas disponibles para exportar este formulario.",
+          );
+          return;
+        }
+
+        await downloadMatrizCaracterizacionXlsx({
+          id_formulario: row.id_formulario,
+          id_usuario:
+            row.server?.id_usuario ??
+            row.historial?.id_usuario ??
+            "sin_usuario",
+          fecha_hora:
+            row.server?.fecha_hora ??
+            row.historial?.fecha_envio ??
+            row.historial?.fecha_hora ??
+            new Date().toISOString(),
+          gps,
+          datos_formulario: detailSnapshot.datos_formulario ?? {},
+          fotos,
+          estado_sincronizacion: "PENDIENTE",
+        });
+      } catch (e) {
+        setDescargaExcelError(
+          e instanceof Error
+            ? e.message
+            : "No se pudo descargar el Excel de este formulario.",
+        );
+      } finally {
+        setDescargandoExcelId(null);
+      }
+    },
+    [detailPrecarga, detailSnapshot],
+  );
+
+  const descargarExcelDeTodos = useCallback(async () => {
+    setDescargaExcelError(null);
+    setDescargandoTodosExcel(true);
+    try {
+      const exportables = rows.map((row) => {
+        const datos =
+          (row.historial?.datos_formulario as Record<string, unknown> | undefined) ??
+          (row.server?.datos_formulario as Record<string, unknown> | undefined) ??
+          row.precargaSolo?.datos_formulario ??
+          {};
+        const gps = row.historial?.gps
+          ? {
+              latitud: row.historial.gps.latitud,
+              longitud: row.historial.gps.longitud,
+              precision:
+                typeof row.historial.gps.precision === "number" &&
+                row.historial.gps.precision > 0
+                  ? row.historial.gps.precision
+                  : 1,
+            }
+          : row.server
+            ? {
+                latitud: row.server.latitud,
+                longitud: row.server.longitud,
+                precision:
+                  typeof row.server.precision === "number" &&
+                  row.server.precision > 0
+                    ? row.server.precision
+                    : 1,
+              }
+            : { latitud: 0, longitud: 0, precision: 1 };
+        const fotos =
+          (row.historial?.fotos ?? row.precargaSolo?.fotos ?? []).filter(
+            (
+              f,
+            ): f is {
+              nombre_archivo: string;
+              data: string;
+            } => typeof f?.data === "string" && f.data.trim() !== "",
+          );
+        return {
+          id_formulario: row.id_formulario,
+          id_usuario:
+            row.server?.id_usuario ?? row.historial?.id_usuario ?? "sin_usuario",
+          fecha_hora:
+            row.server?.fecha_hora ??
+            row.historial?.fecha_envio ??
+            row.historial?.fecha_hora ??
+            row.precargaSolo?.fecha_precarga ??
+            new Date().toISOString(),
+          gps,
+          datos_formulario: datos,
+          fotos,
+          estado_sincronizacion: "PENDIENTE" as const,
+        };
+      });
+      await downloadMatrizCaracterizacionBulkXlsx(exportables);
+    } catch (e) {
+      setDescargaExcelError(
+        e instanceof Error
+          ? e.message
+          : "No se pudo descargar el Excel consolidado.",
+      );
+    } finally {
+      setDescargandoTodosExcel(false);
+    }
+  }, [rows]);
+
   const solicitarEliminar = useCallback((row: DisplayRow) => {
     setEliminarError(null);
     setDeletePasswordError(null);
@@ -568,12 +720,24 @@ export const FormulariosDiligenciadosPage = () => {
               Formularios diligenciados
             </h1>
           </div>
-          <Link
-            to="/inicio"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
-          >
-            Volver
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void descargarExcelDeTodos()}
+              disabled={descargandoTodosExcel}
+            >
+              {descargandoTodosExcel
+                ? "Descargando Excel (todos)…"
+                : "Descargar Excel de todos"}
+            </Button>
+            <Link
+              to="/inicio"
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
+            >
+              Volver
+            </Link>
+          </div>
         </header>
 
         {eliminarError ? (
@@ -830,6 +994,19 @@ export const FormulariosDiligenciadosPage = () => {
                             <Button
                               type="button"
                               variant="outline"
+                              onClick={() => void descargarExcelDelRegistro(row)}
+                              disabled={
+                                detailLoading ||
+                                descargandoExcelId === row.id_formulario
+                              }
+                            >
+                              {descargandoExcelId === row.id_formulario
+                                ? "Descargando Excel…"
+                                : "Descargar Excel"}
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
                               disabled={
                                 !online || eliminandoId === row.id_formulario
                               }
@@ -858,6 +1035,12 @@ export const FormulariosDiligenciadosPage = () => {
                           {precargaError && selectedId === row.id_formulario ? (
                             <p className="text-xs text-rose-600">
                               {precargaError}
+                            </p>
+                          ) : null}
+                          {descargaExcelError &&
+                          selectedId === row.id_formulario ? (
+                            <p className="text-xs text-rose-600">
+                              {descargaExcelError}
                             </p>
                           ) : null}
                           {precargaLoadingId === row.id_formulario ? (

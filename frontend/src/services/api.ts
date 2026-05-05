@@ -90,6 +90,18 @@ export interface LoginResponse {
   expires_in: number;
 }
 
+export class LoginApiError extends Error {
+  status: number;
+  detail: string;
+
+  constructor(status: number, detail: string) {
+    super(detail || `login_${status}`);
+    this.name = "LoginApiError";
+    this.status = status;
+    this.detail = detail || `login_${status}`;
+  }
+}
+
 export const loginApi = async (username: string, password: string): Promise<LoginResponse> => {
   const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
     method: 'POST',
@@ -98,7 +110,7 @@ export const loginApi = async (username: string, password: string): Promise<Logi
   });
   if (!response.ok) {
     const detail = await response.text();
-    throw new Error(detail || `login_${response.status}`);
+    throw new LoginApiError(response.status, detail || `login_${response.status}`);
   }
   return response.json() as Promise<LoginResponse>;
 };

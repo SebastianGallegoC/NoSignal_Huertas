@@ -8,10 +8,13 @@ import {
   MATRIZ_F_PSA_HEADERS,
   MATRIZ_ROW_CELL_SOURCES,
   MATRIZ_SHEET_NAME,
+  buildMatrizCaracterizacionWorkbookBulk,
   buildMatrizCaracterizacionRow,
   buildMatrizCaracterizacionWorkbook,
+  downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
   formatFechaMatriz,
+  matrizCaracterizacionBulkFilename,
   matrizCaracterizacionFilename,
 } from "./matrizCaracterizacionExport";
 
@@ -150,6 +153,15 @@ describe("matrizCaracterizacionFilename", () => {
   });
 });
 
+describe("matrizCaracterizacionBulkFilename", () => {
+  it("genera nombre consolidado con fecha/hora UTC", () => {
+    const name = matrizCaracterizacionBulkFilename(
+      new Date("2026-05-05T17:42:10.000Z"),
+    );
+    expect(name).toBe("Formularios_diligenciados_2026-05-05_17-42.xlsx");
+  });
+});
+
 describe("buildMatrizCaracterizacionWorkbook", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -205,6 +217,31 @@ describe("buildMatrizCaracterizacionWorkbook", () => {
     await wb2.xlsx.load(buf);
     const ws2 = wb2.getWorksheet(MATRIZ_SHEET_NAME);
     expect(ws2!.getCell(8, 63).value).toBe("Nota fin");
+  });
+});
+
+describe("buildMatrizCaracterizacionWorkbookBulk", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("escribe múltiples formularios desde la fila 8 en una sola hoja", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, arrayBuffer: async () => new ArrayBuffer(0) }),
+    );
+    const f1 = minimalForm();
+    f1.id_formulario = "f-1";
+    f1.datos_formulario = { nombres_apellidos_beneficiario: "Ana Uno" };
+    const f2 = minimalForm();
+    f2.id_formulario = "f-2";
+    f2.datos_formulario = { nombres_apellidos_beneficiario: "Beto Dos" };
+
+    const wb = await buildMatrizCaracterizacionWorkbookBulk([f1, f2]);
+    const ws = wb.getWorksheet(MATRIZ_SHEET_NAME);
+    expect(ws?.getCell(8, 8).value).toBe("Ana Uno");
+    expect(ws?.getCell(9, 8).value).toBe("Beto Dos");
   });
 });
 
@@ -268,6 +305,75 @@ describe("downloadMatrizCaracterizacionXlsx", () => {
     expect(removeSpy).toHaveBeenCalledTimes(1);
     expect(revokeSpy).toHaveBeenCalledWith("blob:test-matriz");
 
+    createElSpy.mockRestore();
+    appendSpy.mockRestore();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      writable: true,
+      value: origCreate,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      writable: true,
+      value: origRevoke,
+    });
+  });
+});
+
+describe("downloadMatrizCaracterizacionBulkXlsx", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("descarga un solo archivo consolidado", async () => {
+    const f = minimalForm();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, arrayBuffer: async () => new ArrayBuffer(0) }),
+    );
+    const createSpy = vi.fn(() => "blob:test-matriz-bulk");
+    const revokeSpy = vi.fn();
+    const origCreate = (URL as unknown as { createObjectURL?: unknown }).createObjectURL;
+    const origRevoke = (URL as unknown as { revokeObjectURL?: unknown }).revokeObjectURL;
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      writable: true,
+      value: createSpy,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      writable: true,
+      value: revokeSpy,
+    });
+    const clickSpy = vi.fn();
+    const removeSpy = vi.fn();
+    const mockAnchor = {
+      href: "",
+      download: "",
+      rel: "",
+      click: clickSpy,
+      remove: removeSpy,
+    } as unknown as HTMLAnchorElement;
+    const createElSpy = vi
+      .spyOn(document, "createElement")
+      .mockImplementation((tag: string) => {
+        if (tag === "a") {
+          return mockAnchor;
+        }
+        return document.createElement.bind(document)(tag as "div");
+      });
+    const appendSpy = vi
+      .spyOn(document.body, "appendChild")
+      .mockImplementation(() => mockAnchor);
+
+    await downloadMatrizCaracterizacionBulkXlsx([f]);
+
+    expect(mockAnchor.download).toMatch(
+      /^Formularios_diligenciados_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.xlsx$/,
+    );
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+    expect(revokeSpy).toHaveBeenCalledWith("blob:test-matriz-bulk");
     createElSpy.mockRestore();
     appendSpy.mockRestore();
     Object.defineProperty(URL, "createObjectURL", {

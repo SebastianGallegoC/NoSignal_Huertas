@@ -271,10 +271,16 @@ export function matrizCaracterizacionFilename(form: OfflineForm): string {
   return `${safeBenef}-${safeFecha}.xlsx`;
 }
 
-export async function buildMatrizCaracterizacionWorkbook(
-  form: OfflineForm,
-): Promise<ExcelJS.Workbook> {
-  // Intentar cargar plantilla desde URL configurada o ruta pública
+export function matrizCaracterizacionBulkFilename(date = new Date()): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const mm = String(date.getUTCMinutes()).padStart(2, "0");
+  return `Formularios_diligenciados_${y}-${m}-${day}_${hh}-${mm}.xlsx`;
+}
+
+async function loadTemplateWorkbook(): Promise<ExcelJS.Workbook | null> {
   const templateUrl = import.meta.env.VITE_MATRIZ_TEMPLATE_URL ??
     "/PLANTILLA.xlsx";
   const resolvedTemplateUrl =
@@ -284,41 +290,42 @@ export async function buildMatrizCaracterizacionWorkbook(
 
   try {
     const res = await fetch(resolvedTemplateUrl);
-    if (res.ok) {
-      const buf = await res.arrayBuffer();
-      const wb = new ExcelJS.Workbook();
-      await wb.xlsx.load(buf);
-      const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
-
-      // Asegurarnos de que la hoja exista
-      if (!ws) {
-        // Fallback al builder original si no se encuentra la hoja
-        console.warn(
-          `matriz: plantilla cargada pero no contiene la hoja ${MATRIZ_SHEET_NAME}`,
-        );
-        return buildMatrizCaracterizacionWorkbookFromScratch(form);
-      }
-
-      const cells = buildMatrizCaracterizacionRow(form);
-
-      // Escribir valores en la fila 8, columnas 1..76 manteniendo estilos
-      for (let i = 0; i < cells.length; i++) {
-        const col = i + 1;
-        const cell = ws.getCell(8, col);
-        cell.value = cells[i] as string;
-        // preservar estilo existente; si no existe, aplicar wrapText
-        if (!cell.alignment) {
-          cell.alignment = { wrapText: true, vertical: "top" };
-        }
-      }
-
-      return wb;
+    if (!res.ok) {
+      return null;
     }
+    const buf = await res.arrayBuffer();
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf);
+    return wb;
   } catch (e) {
-    // Si falla la carga de plantilla, continuamos con fallback
     console.warn("matriz: no se pudo cargar plantilla, usando builder interno", e);
+    return null;
   }
+}
 
+export async function buildMatrizCaracterizacionWorkbook(
+  form: OfflineForm,
+): Promise<ExcelJS.Workbook> {
+  const wb = await loadTemplateWorkbook();
+  if (wb) {
+    const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
+    if (!ws) {
+      console.warn(
+        `matriz: plantilla cargada pero no contiene la hoja ${MATRIZ_SHEET_NAME}`,
+      );
+      return buildMatrizCaracterizacionWorkbookFromScratch(form);
+    }
+    const cells = buildMatrizCaracterizacionRow(form);
+    for (let i = 0; i < cells.length; i++) {
+      const col = i + 1;
+      const cell = ws.getCell(8, col);
+      cell.value = cells[i] as string;
+      if (!cell.alignment) {
+        cell.alignment = { wrapText: true, vertical: "top" };
+      }
+    }
+    return wb;
+  }
   return buildMatrizCaracterizacionWorkbookFromScratch(form);
 }
 
@@ -366,6 +373,57 @@ export async function downloadMatrizCaracterizacionXlsx(
   const a = document.createElement("a");
   a.href = url;
   a.download = matrizCaracterizacionFilename(form);
+  a.rel = "noopener";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export async function buildMatrizCaracterizacionWorkbookBulk(
+  forms: OfflineForm[],
+): Promise<ExcelJS.Workbook> {
+  const wb = (await loadTemplateWorkbook()) ??
+    (await buildMatrizCaracterizacionWorkbookFromScratch(forms[0] ?? {
+      id_formulario: "tmp",
+      id_usuario: "sin_usuario",
+      fecha_hora: new Date().toISOString(),
+      gps: { latitud: 0, longitud: 0, precision: 1 },
+      datos_formulario: {},
+      fotos: [],
+      estado_sincronizacion: "PENDIENTE",
+    }));
+  const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
+  if (!ws) {
+    throw new Error("No se encontró la hoja de matriz para exportación masiva.");
+  }
+  for (let idx = 0; idx < forms.length; idx++) {
+    const rowNumber = 8 + idx;
+    const cells = buildMatrizCaracterizacionRow(forms[idx]);
+    for (let i = 0; i < cells.length; i++) {
+      const col = i + 1;
+      const cell = ws.getCell(rowNumber, col);
+      cell.value = cells[i] as string;
+      if (!cell.alignment) {
+        cell.alignment = { wrapText: true, vertical: "top" };
+      }
+    }
+  }
+  return wb;
+}
+
+export async function downloadMatrizCaracterizacionBulkXlsx(
+  forms: OfflineForm[],
+): Promise<void> {
+  const wb = await buildMatrizCaracterizacionWorkbookBulk(forms);
+  const buf = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = matrizCaracterizacionBulkFilename();
   a.rel = "noopener";
   document.body.appendChild(a);
   a.click();

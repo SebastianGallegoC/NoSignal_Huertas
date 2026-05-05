@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { deleteFormFromApi, listFormsFromApi } from "./api";
+import { deleteFormFromApi, listFormsFromApi, loginApi } from "./api";
 
 describe("listFormsFromApi", () => {
   afterEach(() => {
@@ -72,5 +72,44 @@ describe("deleteFormFromApi", () => {
       }),
     );
     await expect(deleteFormFromApi("missing")).rejects.toThrow("not found");
+  });
+});
+
+describe("loginApi", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("retorna token cuando responde 200", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          access_token: "abc",
+          token_type: "bearer",
+          expires_in: 3600,
+        }),
+      }),
+    );
+    await expect(loginApi("demo", "demo")).resolves.toMatchObject({
+      access_token: "abc",
+    });
+  });
+
+  it("lanza LoginApiError con status y detail cuando backend falla", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        text: async () => "invalid_credentials",
+      }),
+    );
+    await expect(loginApi("demo", "bad")).rejects.toMatchObject({
+      name: "LoginApiError",
+      status: 401,
+      detail: "invalid_credentials",
+    });
   });
 });

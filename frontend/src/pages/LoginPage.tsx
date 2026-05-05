@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 
 import { Button } from '@/components/ui/button';
 import { isAccessTokenValid } from '@/lib/jwt';
+import { LoginApiError } from '@/services/api';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export const LoginPage = () => {
@@ -26,8 +27,24 @@ export const LoginPage = () => {
     try {
       await login(username.trim(), password);
       navigate('/inicio', { replace: true });
-    } catch {
-      setError('Credenciales inválidas o servidor no disponible.');
+    } catch (e) {
+      if (e instanceof LoginApiError) {
+        if (e.status === 401) {
+          setError('Usuario o contraseña incorrectos.');
+        } else if (e.status === 429) {
+          setError(
+            'Demasiados intentos fallidos. Esperá unos minutos antes de reintentar.',
+          );
+        } else {
+          setError(
+            'No se pudo iniciar sesión por un error del servidor. Intentá nuevamente.',
+          );
+        }
+      } else {
+        setError(
+          'No se pudo conectar con el servidor. Verificá tu conexión a internet e intentá nuevamente.',
+        );
+      }
     } finally {
       setLoading(false);
     }

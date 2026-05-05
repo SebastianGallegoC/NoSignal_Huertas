@@ -49,6 +49,14 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/formularios"
+          element={
+            <ProtectedRoute>
+              <Navigate to="/formularios-diligenciados" replace />
+            </ProtectedRoute>
+          }
+        />
         <Route path="/" element={<Navigate to="/inicio" replace />} />
       </Routes>
     </Suspense>

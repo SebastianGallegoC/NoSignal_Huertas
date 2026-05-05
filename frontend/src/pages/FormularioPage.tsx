@@ -407,7 +407,7 @@ export const FormularioPage = () => {
             const shouldGo = envioModal?.isEdit;
             setEnvioModal(null);
             if (shouldGo) {
-              navigate("/formularios");
+              navigate("/formularios-diligenciados");
             }
           }}
         />

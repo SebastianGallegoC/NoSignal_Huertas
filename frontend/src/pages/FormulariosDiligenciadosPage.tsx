@@ -53,6 +53,39 @@ const estadoClass: Record<HistorialForm["estado"], string> = {
   ENVIADO: "text-emerald-700",
 };
 
+type DetailSourceKind = "server" | "precarga" | "historial" | "live";
+
+const DETAIL_SOURCE_COLOR: Record<DetailSourceKind, string> = {
+  server: "bg-emerald-100 text-emerald-800",
+  precarga: "bg-indigo-100 text-indigo-800",
+  historial: "bg-amber-100 text-amber-800",
+  live: "bg-slate-100 text-slate-700",
+};
+
+const DETAIL_SOURCE_LABEL: Record<DetailSourceKind, string> = {
+  server: "Servidor",
+  precarga: "Precarga",
+  historial: "Historial local",
+  live: "Local en edición",
+};
+
+/** Misma prioridad que al armar el detalle: servidor → precarga → historial → cola local. */
+function previewDetailSourceForRow(
+  row: DisplayRow,
+  precarga: PrecargaForm | null,
+): DetailSourceKind {
+  if (row.server) {
+    return "server";
+  }
+  if (precarga) {
+    return "precarga";
+  }
+  if (row.historial) {
+    return "historial";
+  }
+  return "live";
+}
+
 export const FormulariosDiligenciadosPage = () => {
   const authUsername = useAuthStore((s) => s.username);
   const navigate = useNavigate();
@@ -63,6 +96,9 @@ export const FormulariosDiligenciadosPage = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailSnapshot, setDetailSnapshot] =
     useState<FormularioSnapshot | null>(null);
+  const [detailSource, setDetailSource] = useState<DetailSourceKind | null>(
+    null,
+  );
   const [detailPrecarga, setDetailPrecarga] = useState<PrecargaForm | null>(
     null,
   );
@@ -221,6 +257,7 @@ export const FormulariosDiligenciadosPage = () => {
     if (!rowsFiltrados.some((r) => r.id_formulario === selectedId)) {
       setSelectedId(null);
       setDetailSnapshot(null);
+      setDetailSource(null);
       setDetailPrecarga(null);
     }
   }, [rowsFiltrados, selectedId]);
@@ -230,12 +267,14 @@ export const FormulariosDiligenciadosPage = () => {
       if (selectedId === row.id_formulario) {
         setSelectedId(null);
         setDetailSnapshot(null);
+        setDetailSource(null);
         setDetailPrecarga(null);
         return;
       }
       setSelectedId(row.id_formulario);
       setDetailLoading(true);
       setDetailSnapshot(null);
+      setDetailSource(null);
       setDetailPrecarga(null);
       setPrecargaError(null);
       const live = await db.formularios.get(row.id_formulario);
@@ -243,13 +282,7 @@ export const FormulariosDiligenciadosPage = () => {
       if (precarga) {
         setDetailPrecarga(precarga);
       }
-      if (live) {
-        setDetailSnapshot({
-          datos_formulario: live.datos_formulario ?? {},
-          gps: live.gps,
-          fotos: live.fotos ?? [],
-        });
-      } else if (row.server) {
+      if (row.server) {
         setDetailSnapshot({
           datos_formulario: (row.server.datos_formulario ?? {}) as Record<
             string,
@@ -265,8 +298,10 @@ export const FormulariosDiligenciadosPage = () => {
             row.server.fotos ?? [],
           ),
         });
+        setDetailSource("server");
       } else if (precarga) {
         setDetailSnapshot(precargaToSnapshot(precarga));
+        setDetailSource("precarga");
       } else if (row.historial) {
         const h = row.historial;
         setDetailSnapshot({
@@ -274,6 +309,14 @@ export const FormulariosDiligenciadosPage = () => {
           gps: h.gps ?? null,
           fotos: h.fotos ?? [],
         });
+        setDetailSource("historial");
+      } else if (live) {
+        setDetailSnapshot({
+          datos_formulario: live.datos_formulario ?? {},
+          gps: live.gps,
+          fotos: live.fotos ?? [],
+        });
+        setDetailSource("live");
       }
       setDetailLoading(false);
     },
@@ -863,6 +906,10 @@ export const FormulariosDiligenciadosPage = () => {
               const tituloUsuario = nombreBenef || "No diligenciado";
               const refTs = getFechaReferenciaEnvio(row);
               const tituloFechaLabel = formatDateTime(refTs);
+              const effectiveDetailSource: DetailSourceKind =
+                isOpen && detailSource != null
+                  ? detailSource
+                  : previewDetailSourceForRow(row, precarga);
               return (
                 <article
                   key={row.id_formulario}
@@ -900,6 +947,12 @@ export const FormulariosDiligenciadosPage = () => {
                             Precargado
                           </span>
                         ) : null}
+                        <span
+                          className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${DETAIL_SOURCE_COLOR[effectiveDetailSource]}`}
+                          title="Fuente usada para el detalle del formulario al expandir"
+                        >
+                          Origen: {DETAIL_SOURCE_LABEL[effectiveDetailSource]}
+                        </span>
                       </div>
                       <p className="font-medium text-slate-900">
                         Beneficiario: {tituloUsuario}
@@ -969,6 +1022,13 @@ export const FormulariosDiligenciadosPage = () => {
                         </p>
                       ) : detailSnapshot ? (
                         <div className="space-y-4">
+                          <div className="flex items-center justify-end">
+                            <span
+                              className={`rounded-md px-2 py-1 text-xs font-semibold ${DETAIL_SOURCE_COLOR[effectiveDetailSource]}`}
+                            >
+                              Origen: {DETAIL_SOURCE_LABEL[effectiveDetailSource]}
+                            </span>
+                          </div>
                           <FormularioRespuestaReadOnly
                             snapshot={detailSnapshot}
                           />

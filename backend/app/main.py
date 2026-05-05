@@ -15,6 +15,16 @@ from .core.database import Base, engine
 
 logger = logging.getLogger(__name__)
 
+_FORMS_FECHA_ACTUALIZACION_SQL = text(
+    """
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'forms'
+      AND column_name = 'fecha_actualizacion'
+    LIMIT 1
+    """
+)
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -29,6 +39,14 @@ async def lifespan(_app: FastAPI):
                 "No usar este modo en producción; ejecutar 'alembic upgrade head'."
             )
             await conn.run_sync(Base.metadata.create_all)
+        else:
+            chk = await conn.execute(_FORMS_FECHA_ACTUALIZACION_SQL)
+            if chk.first() is None:
+                logger.error(
+                    "Esquema desactualizado: falta la columna public.forms.fecha_actualizacion. "
+                    "GET /api/v1/forms/ fallará con 500 hasta aplicar migraciones. "
+                    "Ejecutá: docker compose exec backend python -m alembic upgrade head"
+                )
     yield
 
 
@@ -71,7 +89,12 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        return {"status": "ok", "db": "ok"}
+            chk = await conn.execute(_FORMS_FECHA_ACTUALIZACION_SQL)
+            schema_forms_ok = chk is not None and chk.first() is not None
+        out: dict = {"status": "ok", "db": "ok", "schema_forms_fecha_actualizacion": schema_forms_ok}
+        if not schema_forms_ok:
+            out["detail"] = "Falta columna forms.fecha_actualizacion — ejecutar alembic upgrade head"
+        return out
 
     return app
 

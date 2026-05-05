@@ -39,6 +39,8 @@ docker compose up -d
 ```
 
 ## Migraciones (Alembic)
+Tras cada despliegue que incluya cambios en `backend/alembic/versions/`, **aplicá las migraciones** antes de usar la app en producción. Si no lo hacés, el API puede responder **500** en rutas como `GET /api/v1/forms/`; el navegador a veces muestra además un error de **CORS** porque la respuesta de error no llega como JSON con cabeceras CORS esperadas.
+
 Con Docker (recomendado en servidor; `WORKDIR` del contenedor es `/app`):
 ```bash
 docker compose exec backend python -m alembic upgrade head
@@ -54,6 +56,8 @@ En desarrollo rápido (no recomendado en producción):
 ```bash
 AUTO_CREATE_SCHEMA=true
 ```
+
+Comprobación rápida del esquema: `GET https://<tu-api>/health` incluye `schema_forms_fecha_actualizacion` (debe ser `true`).
 
 ## Calidad y pruebas
 Frontend:

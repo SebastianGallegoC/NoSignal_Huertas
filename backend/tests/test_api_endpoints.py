@@ -11,9 +11,14 @@ from app.main import app
 from app.schemas.form_payload import MAX_GPS_ACCURACY_METERS
 
 
+class _DummyResult:
+    def first(self):
+        return (1,)
+
+
 class _DummyConn:
     async def execute(self, _statement):
-        return None
+        return _DummyResult()
 
 
 class _DummyConnectCtx:
@@ -60,7 +65,10 @@ def test_health_returns_ok(monkeypatch):
     client = TestClient(app)
     resp = client.get("/health")
     assert resp.status_code == 200
-    assert resp.json() == {"status": "ok", "db": "ok"}
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["db"] == "ok"
+    assert body.get("schema_forms_fecha_actualizacion") is True
 
 
 def test_create_form_returns_queued(monkeypatch):

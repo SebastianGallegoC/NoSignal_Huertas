@@ -12,6 +12,7 @@ from starlette import status
 from .api.v1.router import api_router
 from .core.config import settings
 from .core.database import Base, engine
+from .core.schema_flags import set_forms_has_fecha_actualizacion
 
 logger = logging.getLogger(__name__)
 
@@ -39,26 +40,32 @@ async def lifespan(_app: FastAPI):
                 "No usar este modo en producción; ejecutar 'alembic upgrade head'."
             )
             await conn.run_sync(Base.metadata.create_all)
+            set_forms_has_fecha_actualizacion(True)
         else:
             chk = await conn.execute(_FORMS_FECHA_ACTUALIZACION_SQL)
-            if chk.first() is None:
+            has_col = chk.first() is not None
+            set_forms_has_fecha_actualizacion(has_col)
+            if not has_col:
                 logger.error(
                     "Esquema desactualizado: falta la columna public.forms.fecha_actualizacion. "
-                    "GET /api/v1/forms/ fallará con 500 hasta aplicar migraciones. "
-                    "Ejecutá: docker compose exec backend python -m alembic upgrade head"
+                    "GET /api/v1/forms/ usa modo compatible (sin esa columna) hasta migrar; "
+                    "los POST pueden fallar. Ejecutá: docker compose exec backend python -m alembic upgrade head"
                 )
     yield
 
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, lifespan=lifespan)
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+    logger.info("CORS allow_origins=%s regex=%s", settings.cors_origins_list, settings.cors_origin_regex)
+    cors_kw: dict = {
+        "allow_origins": settings.cors_origins_list,
+        "allow_credentials": True,
+        "allow_methods": ["*"],
+        "allow_headers": ["*"],
+    }
+    if settings.cors_origin_regex and settings.cors_origin_regex.strip():
+        cors_kw["allow_origin_regex"] = settings.cors_origin_regex.strip()
+    app.add_middleware(CORSMiddleware, **cors_kw)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
     @app.exception_handler(RequestValidationError)

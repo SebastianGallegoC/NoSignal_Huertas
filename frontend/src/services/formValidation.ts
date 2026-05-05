@@ -97,6 +97,28 @@ const toFormValuesFromPayload = (payload: OfflineForm): FormValues => {
 export const validateOfflineFormPayload = (form: OfflineForm): ValidationIssue[] => {
   const issues = validateFormValues(toFormValuesFromPayload(form));
 
+  const tsEnvio = parseDateSafe(form.fecha_hora);
+  if (tsEnvio == null) {
+    issues.push({
+      code: "fecha_hora_invalid",
+      message: "La fecha del formulario no es válida.",
+    });
+  }
+  if (form.fecha_actualizacion != null && String(form.fecha_actualizacion).trim() !== "") {
+    const tsAct = parseDateSafe(form.fecha_actualizacion);
+    if (tsAct == null) {
+      issues.push({
+        code: "fecha_actualizacion_invalid",
+        message: "La fecha de actualización no es válida.",
+      });
+    } else if (tsEnvio != null && tsAct < tsEnvio) {
+      issues.push({
+        code: "fecha_actualizacion_before_envio",
+        message: "La fecha de actualización no puede ser anterior al primer guardado.",
+      });
+    }
+  }
+
   if (!form.gps || form.gps.precision > MAX_GPS_ACCURACY_METERS) {
     issues.push({
       code: "gps_precision",

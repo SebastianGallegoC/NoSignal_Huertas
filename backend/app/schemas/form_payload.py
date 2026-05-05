@@ -40,10 +40,27 @@ class PhotoPayload(BaseModel):
 class FormPayload(BaseModel):
     id_formulario: str
     id_usuario: str = Field(default="sin_usuario", max_length=64)
-    fecha_hora: str
+    fecha_hora: str = Field(
+        ...,
+        description="Momento del primer registro / envío inicial (en actualizaciones debe conservarse).",
+    )
+    fecha_actualizacion: str | None = Field(
+        default=None,
+        description="ISO 8601 del último guardado; si falta se usa fecha_hora (compat. clientes viejos).",
+    )
     gps: GPSPayload
     datos_formulario: Dict[str, Any] = Field(default_factory=dict)
     fotos: List[PhotoPayload] = Field(default_factory=list)
+
+    @field_validator("fecha_actualizacion", mode="before")
+    @classmethod
+    def blank_fecha_actualizacion_to_none(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            s = value.strip()
+            return s if s else None
+        return None
 
     @field_validator("id_usuario")
     @classmethod

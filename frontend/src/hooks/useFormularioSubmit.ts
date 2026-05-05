@@ -75,10 +75,14 @@ export const buildOfflinePayload = ({
   fotos,
   toSafeUserId,
 }: BuildPayloadArgs): OfflineForm => {
+  const now = new Date().toISOString();
+  const fechaPrimerEnvio = _originalFechaHora ?? now;
+  const fechaActualizacion = _originalFechaHora ? now : fechaPrimerEnvio;
   return {
     id_formulario: formId,
     id_usuario: toSafeUserId(idUsuario || authUsername || "sin_usuario"),
-    fecha_hora: new Date().toISOString(),
+    fecha_hora: fechaPrimerEnvio,
+    fecha_actualizacion: fechaActualizacion,
     gps: {
       latitud: gps.latitud,
       longitud: gps.longitud,

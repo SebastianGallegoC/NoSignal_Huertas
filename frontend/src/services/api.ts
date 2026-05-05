@@ -15,6 +15,7 @@ type ApiFormPayload = {
   id_formulario: string;
   id_usuario: string;
   fecha_hora: string;
+  fecha_actualizacion?: string;
   gps: {
     latitud: number;
     longitud: number;
@@ -53,7 +54,8 @@ function ensureSafeUserId(raw: string): string {
 }
 
 function payloadForApi(form: OfflineForm): ApiFormPayload {
-  return {
+  const fechaAct = form.fecha_actualizacion?.trim() || form.fecha_hora;
+  const out: ApiFormPayload = {
     id_formulario: form.id_formulario,
     id_usuario: ensureSafeUserId(form.id_usuario),
     fecha_hora: form.fecha_hora,
@@ -73,6 +75,10 @@ function payloadForApi(form: OfflineForm): ApiFormPayload {
         f.visita === 1 || f.visita === 2 || f.visita === 3 ? f.visita : null,
     })),
   };
+  if (fechaAct !== form.fecha_hora) {
+    out.fecha_actualizacion = fechaAct;
+  }
+  return out;
 }
 
 const authHeaders = (): Record<string, string> => {

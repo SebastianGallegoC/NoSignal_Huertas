@@ -76,15 +76,15 @@ describe("useFormularioSubmit helpers", () => {
     expect(sections.has("nucleo")).toBe(false);
   });
 
-  it("buildOfflinePayload registra la fecha de guardado actual", () => {
+  it("formulario nuevo: fecha_hora y fecha_actualizacion coinciden", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-01T10:20:30.000Z"));
     const values = buildEmptyValues();
     const payload = buildOfflinePayload({
       values,
       requiredFields: REQUIRED_FIELDS,
-      formId: "form-existente",
-      originalFechaHora: "2026-05-01T10:20:30.000Z",
+      formId: "form-nuevo",
+      originalFechaHora: null,
       idUsuario: "demo",
       authUsername: null,
       gps: { latitud: 4.1, longitud: -74.1, precision: 1 },
@@ -92,6 +92,27 @@ describe("useFormularioSubmit helpers", () => {
       toSafeUserId: (raw) => raw,
     });
     expect(payload.fecha_hora).toBe("2026-05-01T10:20:30.000Z");
+    expect(payload.fecha_actualizacion).toBe("2026-05-01T10:20:30.000Z");
+    vi.useRealTimers();
+  });
+
+  it("reedición: conserva fecha_hora inicial y marca fecha_actualizacion al guardar", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-15T18:00:00.000Z"));
+    const values = buildEmptyValues();
+    const payload = buildOfflinePayload({
+      values,
+      requiredFields: REQUIRED_FIELDS,
+      formId: "form-existente",
+      originalFechaHora: "2026-01-10T08:00:00.000Z",
+      idUsuario: "demo",
+      authUsername: null,
+      gps: { latitud: 4.1, longitud: -74.1, precision: 1 },
+      fotos: [],
+      toSafeUserId: (raw) => raw,
+    });
+    expect(payload.fecha_hora).toBe("2026-01-10T08:00:00.000Z");
+    expect(payload.fecha_actualizacion).toBe("2026-06-15T18:00:00.000Z");
     vi.useRealTimers();
   });
 });

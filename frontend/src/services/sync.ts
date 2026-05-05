@@ -37,13 +37,14 @@ export const enqueueForm = async (form: OfflineForm): Promise<void> => {
     estado_sincronizacion: 'PENDIENTE',
     errores_sync: 0,
   });
+  const fechaAct = form.fecha_actualizacion?.trim() || form.fecha_hora;
   await db.historialFormularios.put({
     id_formulario: form.id_formulario,
     id_usuario: form.id_usuario,
     fecha_hora: form.fecha_hora,
     estado: 'PENDIENTE',
-    fecha_envio: existingHistorial?.fecha_envio,
-    fecha_actualizacion: form.fecha_hora,
+    fecha_envio: existingHistorial?.fecha_envio ?? form.fecha_hora,
+    fecha_actualizacion: fechaAct,
     datos_formulario: form.datos_formulario,
     gps: form.gps,
     fotos: form.fotos,
@@ -171,10 +172,11 @@ export const syncPendingForms = async (): Promise<SyncRunResult> => {
         throw new Error(trimmed ? `HTTP_${response.status}: ${trimmed}` : `HTTP_${response.status}`);
       }
 
+      const fechaActOk = form.fecha_actualizacion?.trim() || form.fecha_hora;
       await db.historialFormularios.update(form.id_formulario, {
         estado: 'ENVIADO',
         fecha_envio: existingHistorial?.fecha_envio ?? form.fecha_hora,
-        fecha_actualizacion: form.fecha_hora,
+        fecha_actualizacion: fechaActOk,
         ultimo_error: undefined,
         datos_formulario: form.datos_formulario,
         gps: form.gps,

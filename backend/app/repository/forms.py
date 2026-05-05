@@ -4,6 +4,7 @@ from geoalchemy2.functions import ST_AsGeoJSON
 from sqlalchemy import cast, select, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.schema_flags import forms_has_fecha_actualizacion
 from app.models.form_record import FormRecord
 from app.schemas.form_read import FormReadItem
 from app.services.storage import (
@@ -47,19 +48,17 @@ async def delete_form(session: AsyncSession, form_id: str) -> bool:
 
 
 async def list_forms_for_read(session: AsyncSession, limit: int) -> list[FormReadItem]:
-    stmt = (
-        select(
-            FormRecord.id_formulario,
-            FormRecord.id_usuario,
-            FormRecord.fecha_hora,
-            FormRecord.fecha_actualizacion,
-            FormRecord.datos_formulario,
-            FormRecord.fotos,
-            cast(ST_AsGeoJSON(FormRecord.gps), String).label("geojson"),
-        )
-        .order_by(FormRecord.fecha_hora.desc())
-        .limit(limit)
+    cols = (
+        FormRecord.id_formulario,
+        FormRecord.id_usuario,
+        FormRecord.fecha_hora,
+        FormRecord.datos_formulario,
+        FormRecord.fotos,
+        cast(ST_AsGeoJSON(FormRecord.gps), String).label("geojson"),
     )
+    if forms_has_fecha_actualizacion:
+        cols = cols + (FormRecord.fecha_actualizacion,)
+    stmt = select(*cols).order_by(FormRecord.fecha_hora.desc()).limit(limit)
     result = await session.execute(stmt)
     items: list[FormReadItem] = []
     for row in result.mappings():
@@ -71,7 +70,7 @@ async def list_forms_for_read(session: AsyncSession, limit: int) -> list[FormRea
             continue
         lon, lat = float(coords[0]), float(coords[1])
         fh = row["fecha_hora"]
-        fa = row["fecha_actualizacion"] or fh
+        fa = row.get("fecha_actualizacion") or fh
         fecha_iso = fh.isoformat() if hasattr(fh, "isoformat") else str(fh)
         fecha_actualizacion_iso = (
             fa.isoformat() if hasattr(fa, "isoformat") else str(fa)

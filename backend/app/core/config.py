@@ -31,6 +31,11 @@ class Settings(BaseSettings):
         alias="CORS_ORIGINS",
         description="Orígenes permitidos separados por coma.",
     )
+    cors_origin_regex: str | None = Field(
+        default=None,
+        alias="CORS_ORIGIN_REGEX",
+        description="Regex de orígenes (opcional). Útil si CORS_ORIGINS no alcanza (subdominios, previews).",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -51,4 +51,23 @@ describe("formValidation — envío mínimo", () => {
     const issues = validateOfflineFormPayload(form);
     expect(issues.map((i) => i.code)).toContain("fotos_visita_required");
   });
+
+  it("validateOfflineFormPayload rechaza fecha_actualizacion anterior a fecha_hora", () => {
+    const datos: Record<string, unknown> = {};
+    for (const k of REQUIRED_FIELDS) {
+      datos[k] = "";
+    }
+    const form: OfflineForm = {
+      id_formulario: "x",
+      id_usuario: "u",
+      fecha_hora: "2026-05-10T12:00:00.000Z",
+      fecha_actualizacion: "2026-05-01T12:00:00.000Z",
+      gps: { latitud: 4.6, longitud: -74.08, precision: 10 },
+      datos_formulario: datos,
+      fotos: [],
+      estado_sincronizacion: "PENDIENTE",
+    };
+    const issues = validateOfflineFormPayload(form);
+    expect(issues.map((i) => i.code)).toContain("fecha_actualizacion_before_envio");
+  });
 });

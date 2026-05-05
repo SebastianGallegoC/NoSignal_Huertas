@@ -17,8 +17,18 @@ def parse_fecha_hora_iso(value: str) -> datetime:
     return datetime.fromisoformat(s)
 
 
+def resolve_fecha_actualizacion_dt(payload: FormPayload) -> datetime:
+    """Última modificación coherente con fecha_hora (primer envío); nunca antes por reloj descoordinado."""
+    fecha_envio = parse_fecha_hora_iso(payload.fecha_hora)
+    if not payload.fecha_actualizacion:
+        return fecha_envio
+    cand = parse_fecha_hora_iso(payload.fecha_actualizacion)
+    return cand if cand >= fecha_envio else fecha_envio
+
+
 async def persist_form(session: AsyncSession, payload: FormPayload) -> FormRecord:
     fecha_hora = parse_fecha_hora_iso(payload.fecha_hora)
+    fecha_act = resolve_fecha_actualizacion_dt(payload)
     gps_point = WKTElement(f"POINT({payload.gps.longitud} {payload.gps.latitud})", srid=4326)
 
     existing = await get_form_by_id(session, payload.id_formulario)
@@ -35,7 +45,7 @@ async def persist_form(session: AsyncSession, payload: FormPayload) -> FormRecor
             )
             existing.fotos = new_paths
         existing.id_usuario = payload.id_usuario
-        existing.fecha_actualizacion = fecha_hora
+        existing.fecha_actualizacion = fecha_act
         existing.gps = gps_point
         existing.datos_formulario = dict(payload.datos_formulario)
         await session.commit()
@@ -52,7 +62,7 @@ async def persist_form(session: AsyncSession, payload: FormPayload) -> FormRecor
         id_formulario=payload.id_formulario,
         id_usuario=payload.id_usuario,
         fecha_hora=fecha_hora,
-        fecha_actualizacion=fecha_hora,
+        fecha_actualizacion=fecha_act,
         gps=gps_point,
         datos_formulario=payload.datos_formulario,
         fotos=fotos,

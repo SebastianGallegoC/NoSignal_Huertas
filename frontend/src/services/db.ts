@@ -11,7 +11,10 @@ export type FotoForm = {
 export interface OfflineForm {
   id_formulario: string;
   id_usuario: string;
+  /** Fecha/hora del primer guardado (no cambia al reeditar el mismo formulario). */
   fecha_hora: string;
+  /** Momento de este guardado / última modificación local (se envía al API como `fecha_actualizacion`). */
+  fecha_actualizacion?: string;
   gps: {
     latitud: number;
     longitud: number;

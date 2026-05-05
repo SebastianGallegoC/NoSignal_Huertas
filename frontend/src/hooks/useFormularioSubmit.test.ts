@@ -76,7 +76,9 @@ describe("useFormularioSubmit helpers", () => {
     expect(sections.has("nucleo")).toBe(false);
   });
 
-  it("buildOfflinePayload conserva fecha_hora original al editar", () => {
+  it("buildOfflinePayload registra la fecha de guardado actual", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-01T10:20:30.000Z"));
     const values = buildEmptyValues();
     const payload = buildOfflinePayload({
       values,
@@ -90,5 +92,6 @@ describe("useFormularioSubmit helpers", () => {
       toSafeUserId: (raw) => raw,
     });
     expect(payload.fecha_hora).toBe("2026-05-01T10:20:30.000Z");
+    vi.useRealTimers();
   });
 });

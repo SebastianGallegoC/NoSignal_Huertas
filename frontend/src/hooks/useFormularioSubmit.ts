@@ -68,7 +68,7 @@ export const buildOfflinePayload = ({
   values,
   requiredFields,
   formId,
-  originalFechaHora,
+  originalFechaHora: _originalFechaHora,
   idUsuario,
   authUsername,
   gps,
@@ -78,10 +78,7 @@ export const buildOfflinePayload = ({
   return {
     id_formulario: formId,
     id_usuario: toSafeUserId(idUsuario || authUsername || "sin_usuario"),
-    fecha_hora:
-      originalFechaHora && originalFechaHora.trim() !== ""
-        ? originalFechaHora
-        : new Date().toISOString(),
+    fecha_hora: new Date().toISOString(),
     gps: {
       latitud: gps.latitud,
       longitud: gps.longitud,
@@ -110,7 +107,7 @@ export const useFormularioSubmit = ({
   gps,
   fotos,
   formId,
-  originalFechaHora,
+  originalFechaHora: _originalFechaHora,
   idUsuario,
   authUsername,
   draftUserKey,
@@ -148,7 +145,7 @@ export const useFormularioSubmit = ({
       values,
       requiredFields,
       formId,
-      originalFechaHora,
+      originalFechaHora: _originalFechaHora,
       idUsuario,
       authUsername,
       gps,

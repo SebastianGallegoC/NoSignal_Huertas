@@ -31,6 +31,7 @@ export const validateFormPayload = (form: OfflineForm): string[] => {
 };
 
 export const enqueueForm = async (form: OfflineForm): Promise<void> => {
+  const existingHistorial = await db.historialFormularios.get(form.id_formulario);
   await db.formularios.put({
     ...form,
     estado_sincronizacion: 'PENDIENTE',
@@ -41,6 +42,7 @@ export const enqueueForm = async (form: OfflineForm): Promise<void> => {
     id_usuario: form.id_usuario,
     fecha_hora: form.fecha_hora,
     estado: 'PENDIENTE',
+    fecha_envio: existingHistorial?.fecha_envio,
     datos_formulario: form.datos_formulario,
     gps: form.gps,
     fotos: form.fotos,

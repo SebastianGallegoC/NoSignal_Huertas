@@ -1,11 +1,13 @@
 import logging
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.responses import FileResponse, Response
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.core.database import get_session
+from app.core.schema_flags import forms_has_fecha_actualizacion
 from app.repository.forms import delete_form, get_form_fotos_paths_by_id, list_forms_for_read
 from app.schemas.form_payload import FormPayload
 from app.schemas.form_read import FormListResponse
@@ -18,12 +20,40 @@ router = APIRouter()
 
 @router.get("/", response_model=FormListResponse)
 async def list_forms(
+    request: Request,
     limit: int = Query(200, ge=1, le=500),
     session: AsyncSession = Depends(get_session),
     _current_user: str = Depends(get_current_user),
 ):
     """Lista formularios guardados en el servidor (todos los dispositivos que sincronizaron)."""
-    items = await list_forms_for_read(session, limit)
+    rid = getattr(request.state, "request_id", None)
+    try:
+        items = await list_forms_for_read(session, limit)
+    except SQLAlchemyError:
+        logger.exception(
+            "list_forms DB error request_id=%s limit=%s user=%r schema_has_fecha_actualizacion=%s",
+            rid,
+            limit,
+            _current_user,
+            forms_has_fecha_actualizacion,
+        )
+        raise
+    except Exception:
+        logger.exception(
+            "list_forms unexpected error request_id=%s limit=%s user=%r schema_has_fecha_actualizacion=%s",
+            rid,
+            limit,
+            _current_user,
+            forms_has_fecha_actualizacion,
+        )
+        raise
+    logger.info(
+        "list_forms_ok request_id=%s count=%s limit=%s user=%r",
+        rid,
+        len(items),
+        limit,
+        _current_user,
+    )
     return FormListResponse(items=items)
 
 

@@ -36,6 +36,11 @@ class Settings(BaseSettings):
         alias="CORS_ORIGIN_REGEX",
         description="Regex de orígenes (opcional). Útil si CORS_ORIGINS no alcanza (subdominios, previews).",
     )
+    expose_error_detail: bool = Field(
+        default=False,
+        alias="EXPOSE_ERROR_DETAIL",
+        description="Si true, las respuestas 500 incluyen tipo y mensaje del error (solo diagnóstico; no en prod pública).",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

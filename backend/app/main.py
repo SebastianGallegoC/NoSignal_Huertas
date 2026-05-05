@@ -12,7 +12,8 @@ from starlette import status
 from .api.v1.router import api_router
 from .core.config import settings
 from .core.database import Base, engine
-from .core.schema_flags import set_forms_has_fecha_actualizacion
+from .core.schema_flags import forms_has_fecha_actualizacion, set_forms_has_fecha_actualizacion
+from .middleware.request_context import RequestContextMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -66,6 +67,7 @@ def create_app() -> FastAPI:
     if settings.cors_origin_regex and settings.cors_origin_regex.strip():
         cors_kw["allow_origin_regex"] = settings.cors_origin_regex.strip()
     app.add_middleware(CORSMiddleware, **cors_kw)
+    app.add_middleware(RequestContextMiddleware)
     app.include_router(api_router, prefix=settings.api_v1_prefix)
 
     @app.exception_handler(RequestValidationError)
@@ -82,15 +84,28 @@ def create_app() -> FastAPI:
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-        # Evita respuestas vacías/HTML en errores internos y deja traza útil en logs.
+        rid = getattr(request.state, "request_id", None)
+        origin = request.headers.get("origin") or request.headers.get("Origin") or ""
+        client = request.client.host if request.client else "unknown"
         logger.exception(
-            "Unhandled exception on %s %s from %s",
+            "Unhandled exception request_id=%s method=%s path=%s client=%s origin=%r "
+            "schema_forms_fecha_actualizacion=%s: %s",
+            rid,
             request.method,
             request.url.path,
-            request.client.host if request.client else "unknown",
-            exc_info=exc,
+            client,
+            origin,
+            forms_has_fecha_actualizacion,
+            exc,
         )
-        return JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+        content: dict = {"detail": "internal_server_error"}
+        if settings.expose_error_detail:
+            content["error_type"] = type(exc).__name__
+            msg = str(exc).strip()
+            if len(msg) > 800:
+                msg = msg[:800] + "…"
+            content["error_message"] = msg or type(exc).__name__
+        return JSONResponse(status_code=500, content=content)
 
     @app.get("/health", tags=["health"])
     async def health() -> dict:

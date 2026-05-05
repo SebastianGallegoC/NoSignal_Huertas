@@ -21,7 +21,7 @@ type ApiFormPayload = {
     precision: number;
   };
   datos_formulario: Record<string, unknown>;
-  fotos: Array<{ nombre_archivo: string; data: string }>;
+  fotos: Array<{ nombre_archivo: string; data: string; visita?: 1 | 2 | 3 | null }>;
 };
 
 /** Normaliza imágenes para el validador del API (prefijo data:image/…). */
@@ -69,6 +69,8 @@ function payloadForApi(form: OfflineForm): ApiFormPayload {
     fotos: form.fotos.map((f) => ({
       nombre_archivo: f.nombre_archivo,
       data: ensureFotoDataUrl(f.data),
+      visita:
+        f.visita === 1 || f.visita === 2 || f.visita === 3 ? f.visita : null,
     })),
   };
 }

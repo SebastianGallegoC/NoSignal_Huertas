@@ -106,7 +106,10 @@ export function mergeFormsWithPrecargas(
   });
 }
 
-export function mapServerFotos(formId: string, raw: unknown): FormularioSnapshot["fotos"] {
+export function mapServerFotos(
+  formId: string,
+  raw: unknown,
+): NonNullable<FormularioSnapshot["fotos"]> {
   const list: unknown[] = Array.isArray(raw)
     ? raw
     : typeof raw === "string"
@@ -127,6 +130,19 @@ export function mapServerFotos(formId: string, raw: unknown): FormularioSnapshot
         path: p,
         serverFormId: formId,
         serverIndex: i,
+      };
+    }
+    if (p !== null && typeof p === "object" && "path" in p) {
+      const path = String((p as { path: unknown }).path);
+      const base = path.split(/[/\\]/).pop() || `foto_${i + 1}.jpg`;
+      const v = (p as { visita?: unknown }).visita;
+      const visita = v === 1 || v === 2 || v === 3 ? v : undefined;
+      return {
+        nombre_archivo: base,
+        path,
+        serverFormId: formId,
+        serverIndex: i,
+        ...(visita != null ? { visita } : {}),
       };
     }
     return {

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { HistorialForm, PrecargaForm } from "@/services/db";
 import {
   getBeneficiarioDisplayName,
+  mapServerFotos,
   mergeFormsWithPrecargas,
   normalizeTextoBusqueda,
   reconcileLocalStateWithTrustedServerList,
@@ -57,6 +58,21 @@ describe("formHistory — beneficiario", () => {
 
   it("normalizeTextoBusqueda quita tildes para comparar", () => {
     expect(normalizeTextoBusqueda("  José  ")).toBe("jose");
+  });
+
+  it("mapServerFotos incluye visita cuando el API devuelve objetos { path, visita }", () => {
+    const out = mapServerFotos("fid", [
+      { path: "uploads/x/foto_1.jpg", visita: 2 },
+      "uploads/y/foto_2.jpg",
+    ]);
+    expect(out).toHaveLength(2);
+    const a = out[0];
+    const b = out[1];
+    expect(a).toBeDefined();
+    expect(b).toBeDefined();
+    expect(a!.visita).toBe(2);
+    expect(a!.path).toContain("foto_1.jpg");
+    expect(b!.visita).toBeUndefined();
   });
 
   it("getBeneficiarioDisplayName lee precargaSolo", () => {

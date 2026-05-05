@@ -1,5 +1,5 @@
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -20,6 +20,7 @@ class GPSPayload(BaseModel):
 class PhotoPayload(BaseModel):
     nombre_archivo: str
     data: str
+    visita: Literal[1, 2, 3] | None = None
 
     @field_validator("data")
     @classmethod

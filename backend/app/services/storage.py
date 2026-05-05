@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from datetime import datetime
+from typing import Any
 from io import BytesIO
 from pathlib import Path
 
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 def normalize_stored_foto_paths(raw: object) -> list[str]:
-    """Convierte el JSON de `forms.fotos` en lista de rutas (str). Acepta list o string JSON."""
+    """Rutas de archivo en orden. Acepta lista de str (legado) o de dicts `{"path", "visita?"}`."""
     if raw is None:
         return []
     if isinstance(raw, str):
@@ -25,7 +26,44 @@ def normalize_stored_foto_paths(raw: object) -> list[str]:
             return []
     if not isinstance(raw, list):
         return []
-    return [str(p) for p in raw if p]
+    out: list[str] = []
+    for p in raw:
+        if isinstance(p, str) and p.strip():
+            out.append(str(p))
+        elif isinstance(p, dict):
+            path = p.get("path")
+            if isinstance(path, str) and path.strip():
+                out.append(path.strip())
+    return out
+
+
+def fotos_json_for_api_list(raw: object) -> list[Any]:
+    """Lista para `GET /forms`: str (legado) o `{"path", "visita?}` para que cualquier cliente agrupe por visita."""
+    if raw is None:
+        return []
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+    if not isinstance(raw, list):
+        return []
+    out: list[Any] = []
+    for item in raw:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip())
+            continue
+        if isinstance(item, dict):
+            path = item.get("path")
+            if not isinstance(path, str) or not path.strip():
+                continue
+            path = path.strip()
+            v = item.get("visita")
+            if v in (1, 2, 3):
+                out.append({"path": path, "visita": int(v)})
+            else:
+                out.append(path)
+    return out
 
 
 def validated_photo_path(stored: str) -> Path | None:
@@ -83,12 +121,17 @@ def media_type_for_image(path: Path) -> str:
     return "image/jpeg"
 
 
-def save_photos(id_usuario: str, id_formulario: str, fotos: list[PhotoPayload], fecha_hora: datetime) -> list[str]:
+def save_photos(
+    id_usuario: str,
+    id_formulario: str,
+    fotos: list[PhotoPayload],
+    fecha_hora: datetime,
+) -> list[dict[str, Any]]:
     date_path = fecha_hora.strftime("%Y/%m/%d")
     base_path = os.path.join(settings.upload_root, date_path, id_usuario, id_formulario)
     os.makedirs(base_path, exist_ok=True)
 
-    saved_files: list[str] = []
+    saved_entries: list[dict[str, Any]] = []
     for idx, foto in enumerate(fotos, start=1):
         header, _, data = foto.data.partition("base64,")
         if not data:
@@ -105,6 +148,9 @@ def save_photos(id_usuario: str, id_formulario: str, fotos: list[PhotoPayload], 
         with open(file_path, "wb") as handler:
             handler.write(raw)
 
-        saved_files.append(file_path)
+        entry: dict[str, Any] = {"path": file_path}
+        if foto.visita in (1, 2, 3):
+            entry["visita"] = foto.visita
+        saved_entries.append(entry)
 
-    return saved_files
+    return saved_entries

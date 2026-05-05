@@ -304,9 +304,10 @@ export const FormulariosDiligenciadosPage = () => {
         });
         // #endregion
 
-        const serverFotos =
-          mapServerFotos(row.server.id_formulario, row.server.fotos ?? []) ??
-          [];
+        const serverFotos = mapServerFotos(
+          row.server.id_formulario,
+          row.server.fotos ?? [],
+        );
         const localFotos =
           row.historial?.fotos ??
           precarga?.fotos ??
@@ -418,10 +419,15 @@ export const FormulariosDiligenciadosPage = () => {
         let snapshot: FormularioSnapshot | null = null;
         let failedFotos = 0;
         if (row.server) {
-          const baseFotos =
-            mapServerFotos(row.server.id_formulario, row.server.fotos ?? []) ??
-            [];
-          const fotos: Array<{ nombre_archivo: string; data: string }> = [];
+          const baseFotos = mapServerFotos(
+            row.server.id_formulario,
+            row.server.fotos ?? [],
+          );
+          const fotos: Array<{
+            nombre_archivo: string;
+            data: string;
+            visita?: 1 | 2 | 3;
+          }> = [];
           for (const foto of baseFotos) {
             if (foto.serverFormId == null || foto.serverIndex == null) {
               continue;
@@ -431,7 +437,13 @@ export const FormulariosDiligenciadosPage = () => {
                 foto.serverFormId,
                 foto.serverIndex,
               );
-              fotos.push({ nombre_archivo: foto.nombre_archivo, data });
+              fotos.push({
+                nombre_archivo: foto.nombre_archivo,
+                data,
+                ...(foto.visita === 1 || foto.visita === 2 || foto.visita === 3
+                  ? { visita: foto.visita }
+                  : {}),
+              });
             } catch {
               failedFotos += 1;
             }
@@ -462,11 +474,22 @@ export const FormulariosDiligenciadosPage = () => {
         }
 
         const fotosPrecarga = (snapshot.fotos ?? [])
-          .map((f) =>
-            f.data ? { nombre_archivo: f.nombre_archivo, data: f.data } : null,
-          )
+          .map((f) => {
+            if (!f.data) {
+              return null;
+            }
+            const base = {
+              nombre_archivo: f.nombre_archivo,
+              data: f.data,
+            };
+            if (f.visita === 1 || f.visita === 2 || f.visita === 3) {
+              return { ...base, visita: f.visita };
+            }
+            return base;
+          })
           .filter(
-            (f): f is { nombre_archivo: string; data: string } => f !== null,
+            (f): f is { nombre_archivo: string; data: string; visita?: 1 | 2 | 3 } =>
+              f !== null,
           );
 
         const precarga: PrecargaForm = {

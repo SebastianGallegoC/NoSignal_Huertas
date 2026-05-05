@@ -6,7 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.form_record import FormRecord
 from app.schemas.form_read import FormReadItem
-from app.services.storage import normalize_stored_foto_paths, safe_delete_stored_photos
+from app.services.storage import (
+    fotos_json_for_api_list,
+    normalize_stored_foto_paths,
+    safe_delete_stored_photos,
+)
 
 
 async def get_form_by_id(session: AsyncSession, form_id: str) -> FormRecord | None:
@@ -68,7 +72,7 @@ async def list_forms_for_read(session: AsyncSession, limit: int) -> list[FormRea
         fh = row["fecha_hora"]
         fecha_iso = fh.isoformat() if hasattr(fh, "isoformat") else str(fh)
         datos = row["datos_formulario"] if isinstance(row["datos_formulario"], dict) else {}
-        fotos_list = normalize_stored_foto_paths(row["fotos"])
+        fotos_list = fotos_json_for_api_list(row["fotos"])
         items.append(
             FormReadItem(
                 id_formulario=row["id_formulario"],

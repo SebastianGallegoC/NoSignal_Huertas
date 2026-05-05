@@ -26,6 +26,13 @@ describe("validateFormPayload", () => {
     expect(errors).toContain("gps_precision");
   });
 
+  it("marca error cuando la precisión GPS es 0 o menor", () => {
+    const form = baseForm();
+    form.gps.precision = 0;
+    const errors = validateFormPayload(form);
+    expect(errors).toContain("gps_precision");
+  });
+
   it("marca error cuando excede el máximo de fotos", () => {
     const form = baseForm();
     form.fotos = new Array(16).fill(0).map((_, i) => ({

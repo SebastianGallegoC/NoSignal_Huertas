@@ -46,6 +46,9 @@ type BuildPayloadArgs = {
   toSafeUserId: (raw: string) => string;
 };
 
+const MIN_GPS_PRECISION_METERS = 0.1;
+const MAX_GPS_PRECISION_METERS = 5;
+
 export const buildDatosFormulario = (
   values: FormValues,
   requiredFields: readonly FormFieldKey[],
@@ -74,7 +77,10 @@ export const buildOfflinePayload = ({
     gps: {
       latitud: gps.latitud,
       longitud: gps.longitud,
-      precision: Math.min(gps.precision, 5),
+      precision: Math.max(
+        MIN_GPS_PRECISION_METERS,
+        Math.min(gps.precision, MAX_GPS_PRECISION_METERS),
+      ),
     },
     datos_formulario: buildDatosFormulario(values, requiredFields),
     fotos,

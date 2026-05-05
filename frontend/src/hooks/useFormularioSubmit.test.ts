@@ -47,6 +47,22 @@ describe("useFormularioSubmit helpers", () => {
     expect(payload.estado_sincronizacion).toBe("PENDIENTE");
   });
 
+  it("buildOfflinePayload corrige precision GPS <= 0 a mínimo válido", () => {
+    const values = buildEmptyValues();
+    const payload = buildOfflinePayload({
+      values,
+      requiredFields: REQUIRED_FIELDS,
+      formId: "form-precision-0",
+      idUsuario: "demo",
+      authUsername: null,
+      gps: { latitud: 4.1, longitud: -74.1, precision: 0 },
+      fotos: [],
+      toSafeUserId: (raw) => raw,
+    });
+
+    expect(payload.gps.precision).toBe(0.1);
+  });
+
   it("getSectionsWithErrors ubica secciones afectadas", () => {
     const sections = getSectionsWithErrors([
       "entidad_aportante",

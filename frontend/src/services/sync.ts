@@ -10,7 +10,11 @@ const MAX_PHOTOS = 15;
 export const validateFormPayload = (form: OfflineForm): string[] => {
   const errors: string[] = [];
 
-  if (!form.gps || form.gps.precision > MAX_GPS_ACCURACY_METERS) {
+  if (
+    !form.gps ||
+    form.gps.precision <= 0 ||
+    form.gps.precision > MAX_GPS_ACCURACY_METERS
+  ) {
     errors.push('gps_precision');
   }
   if (!Array.isArray(form.fotos) || form.fotos.length < MIN_PHOTOS || form.fotos.length > MAX_PHOTOS) {

@@ -4,6 +4,7 @@ import type { OfflineForm } from './db';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 const LEGACY_API_MAX_GPS_ACCURACY_METERS = 100;
+const MIN_GPS_PRECISION_METERS = 0.1;
 
 type ApiFormPayload = {
   id_formulario: string;
@@ -54,7 +55,10 @@ function payloadForApi(form: OfflineForm): ApiFormPayload {
     gps: {
       ...form.gps,
       // Compatibilidad con backend productivo antiguo (rechaza precisión > 5m con 422).
-      precision: Math.min(form.gps.precision, LEGACY_API_MAX_GPS_ACCURACY_METERS),
+      precision: Math.max(
+        MIN_GPS_PRECISION_METERS,
+        Math.min(form.gps.precision, LEGACY_API_MAX_GPS_ACCURACY_METERS),
+      ),
     },
     datos_formulario: form.datos_formulario,
     fotos: form.fotos.map((f) => ({

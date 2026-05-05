@@ -1,4 +1,5 @@
 import { REQUIRED_FIELDS, type FormValues } from '@/types/formFields';
+import type { FotoForm } from '@/services/db';
 
 const KEY_PREFIX = 'nosignal:formulario-borrador:';
 
@@ -16,7 +17,7 @@ export type FormDraftV1 = {
   originalFechaHora?: string | null;
   idUsuario: string;
   formValues: FormValues;
-  fotos: Array<{ nombre_archivo: string; data: string }>;
+  fotos: FotoForm[];
   gps: GpsDraft | null;
 };
 

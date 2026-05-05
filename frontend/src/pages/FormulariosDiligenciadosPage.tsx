@@ -711,7 +711,7 @@ export const FormulariosDiligenciadosPage = () => {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-6 flex items-center justify-between gap-3">
+        <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-700">
               NoSignal
@@ -720,12 +720,13 @@ export const FormulariosDiligenciadosPage = () => {
               Formularios diligenciados
             </h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
             <Button
               type="button"
               variant="outline"
               onClick={() => void descargarExcelDeTodos()}
               disabled={descargandoTodosExcel}
+              className="w-full sm:w-auto"
             >
               {descargandoTodosExcel
                 ? "Descargando Excel (todos)…"
@@ -733,7 +734,7 @@ export const FormulariosDiligenciadosPage = () => {
             </Button>
             <Link
               to="/inicio"
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm"
+              className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm sm:w-auto"
             >
               Volver
             </Link>

@@ -62,7 +62,7 @@ function payloadForApi(form: OfflineForm): ApiFormPayload {
     },
     datos_formulario: form.datos_formulario,
     fotos: form.fotos.map((f) => ({
-      ...f,
+      nombre_archivo: f.nombre_archivo,
       data: ensureFotoDataUrl(f.data),
     })),
   };

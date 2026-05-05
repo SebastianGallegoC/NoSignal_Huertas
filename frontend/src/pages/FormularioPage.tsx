@@ -35,6 +35,7 @@ import {
   syncPendingForms,
   type SyncErrorItem,
 } from "@/services/sync";
+import type { FotoForm } from "@/services/db";
 import { randomUuid } from "@/lib/randomUuid";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
@@ -100,8 +101,9 @@ export const FormularioPage = () => {
     () => loadedDraft?.idUsuario ?? "",
   );
   const [fotos, setFotos] = useState<
-    Array<{ nombre_archivo: string; data: string }>
+    FotoForm[]
   >(() => loadedDraft?.fotos ?? []);
+  const [visitaFotoSeleccionada, setVisitaFotoSeleccionada] = useState<1 | 2 | 3 | null>(null);
   const [previewFoto, setPreviewFoto] = useState<ImagePreview | null>(null);
   const [formId, setFormId] = useState(
     () => loadedDraft?.formId ?? randomUuid(),
@@ -233,7 +235,11 @@ export const FormularioPage = () => {
     void refreshPendientes();
   }, [refreshPendientes]);
 
-  const processIncomingFiles = async (files: File[], saveToDevice = false) => {
+  const processIncomingFiles = async (
+    files: File[],
+    visita: 1 | 2 | 3,
+    saveToDevice = false,
+  ) => {
     if (!files.length) {
       return;
     }
@@ -250,7 +256,7 @@ export const FormularioPage = () => {
         const nombre =
           compressed.name.replace(/[^\w.-]+/g, "_") ||
           `foto_${combined.length + 1}.jpg`;
-        combined.push({ nombre_archivo: nombre, data });
+        combined.push({ nombre_archivo: nombre, data, visita });
         if (saveToDevice) {
           const downloadUrl = URL.createObjectURL(compressed);
           const anchor = document.createElement("a");
@@ -271,7 +277,11 @@ export const FormularioPage = () => {
   const onFotosChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     event.target.value = "";
-    await processIncomingFiles(files, false);
+    if (!visitaFotoSeleccionada) {
+      setBanner("Seleccioná visita 1, 2 o 3 antes de cargar fotos.");
+      return;
+    }
+    await processIncomingFiles(files, visitaFotoSeleccionada, false);
   };
   const {
     cameraOpen,
@@ -283,7 +293,11 @@ export const FormularioPage = () => {
     captureFromCamera,
   } = useCameraCapture({
     onCapturedFile: async (file) => {
-      await processIncomingFiles([file], true);
+      if (!visitaFotoSeleccionada) {
+        setBanner("Seleccioná visita 1, 2 o 3 antes de tomar fotos.");
+        return;
+      }
+      await processIncomingFiles([file], visitaFotoSeleccionada, true);
     },
     setBanner,
   });
@@ -471,6 +485,8 @@ export const FormularioPage = () => {
 
           <FormularioFotosSection
             fotos={fotos}
+            visitaSeleccionada={visitaFotoSeleccionada}
+            onVisitaSeleccionadaChange={setVisitaFotoSeleccionada}
             pickerInputRef={pickerInputRef}
             cameraOpen={cameraOpen}
             cameraVideoRef={cameraVideoRef}

@@ -5,6 +5,7 @@ import type { FormEnvioResultState } from "@/components/form/FormEnvioResultModa
 import { FORM_SECTIONS } from "@/config/formSections";
 import { randomUuid } from "@/lib/randomUuid";
 import type { OfflineForm } from "@/services/db";
+import type { FotoForm } from "@/services/db";
 import { clearFormDraft } from "@/services/formDraftStorage";
 import { enqueueForm, syncPendingForms } from "@/services/sync";
 import {
@@ -15,7 +16,7 @@ import type { FormFieldKey, FormValues } from "@/types/formFields";
 
 type Args = {
   gps: { latitud: number; longitud: number; precision: number } | null;
-  fotos: Array<{ nombre_archivo: string; data: string }>;
+  fotos: FotoForm[];
   formId: string;
   originalFechaHora: string | null;
   idUsuario: string;
@@ -26,7 +27,7 @@ type Args = {
   setSubmitFeedback: (v: string | null) => void;
   setEnvioModal: (v: FormEnvioResultState | null) => void;
   setEnviando: (v: boolean) => void;
-  setFotos: (v: Array<{ nombre_archivo: string; data: string }>) => void;
+  setFotos: (v: FotoForm[]) => void;
   setFormId: (v: string) => void;
   setOriginalFechaHora: (v: string | null) => void;
   refreshPendientes: () => Promise<void>;
@@ -45,7 +46,7 @@ type BuildPayloadArgs = {
   idUsuario: string;
   authUsername: string | null;
   gps: { latitud: number; longitud: number; precision: number };
-  fotos: Array<{ nombre_archivo: string; data: string }>;
+  fotos: FotoForm[];
   toSafeUserId: (raw: string) => string;
 };
 

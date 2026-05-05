@@ -102,14 +102,14 @@ function strFromDatos(
 
 /** Origen de cada celda de la fila 8 (76 columnas), alineado con la matriz F-PSA-08. */
 export type MatrizRowCellSource =
-  | { kind: "id" }
+  | { kind: "id_formulario" }
   | { kind: "field"; key: FormFieldKey }
   | { kind: "fecha"; key: FormFieldKey }
   | { kind: "lon" }
   | { kind: "lat" };
 
 export const MATRIZ_ROW_CELL_SOURCES: readonly MatrizRowCellSource[] = [
-  { kind: "id" },
+  { kind: "id_formulario" },
   { kind: "field", key: "entidad_aportante" },
   { kind: "field", key: "tipo_organizacion_entidad_aportante" },
   { kind: "field", key: "nombre_actividad" },
@@ -229,8 +229,8 @@ export function buildMatrizCaracterizacionRow(form: OfflineForm): string[] {
 
   return MATRIZ_ROW_CELL_SOURCES.map((src) => {
     switch (src.kind) {
-      case "id":
-        return "1";
+      case "id_formulario":
+        return form.id_formulario;
       case "field":
         return g(src.key);
       case "fecha":

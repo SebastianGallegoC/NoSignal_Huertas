@@ -2,11 +2,14 @@ import type { ChangeEvent, RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { ImagePreview } from "@/components/form/ImagePreviewModal";
+import type { FotoForm, VisitaNumero } from "@/services/db";
 
-type Foto = { nombre_archivo: string; data: string };
+const visitaLabel = (v?: VisitaNumero) => (v ? `Visita ${v}` : "Sin visita");
 
 type Props = {
-  fotos: Foto[];
+  fotos: FotoForm[];
+  visitaSeleccionada: VisitaNumero | null;
+  onVisitaSeleccionadaChange: (v: VisitaNumero | null) => void;
   pickerInputRef: RefObject<HTMLInputElement | null>;
   cameraOpen: boolean;
   cameraVideoRef: RefObject<HTMLVideoElement | null>;
@@ -22,6 +25,8 @@ type Props = {
 
 export const FormularioFotosSection = ({
   fotos,
+  visitaSeleccionada,
+  onVisitaSeleccionadaChange,
   pickerInputRef,
   cameraOpen,
   cameraVideoRef,
@@ -42,20 +47,48 @@ export const FormularioFotosSection = ({
         1280 px antes de guardar.
       </p>
       <p className="mt-1 text-xs text-slate-600">Cargadas: {fotos.length}</p>
+      <label className="mt-3 block text-sm font-medium text-slate-800">
+        Relacionar fotos con visita
+        <select
+          value={visitaSeleccionada ? String(visitaSeleccionada) : ""}
+          onChange={(e) =>
+            onVisitaSeleccionadaChange(
+              e.target.value ? (Number(e.target.value) as VisitaNumero) : null,
+            )
+          }
+          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+        >
+          <option value="">Seleccioná visita</option>
+          <option value="1">Visita 1</option>
+          <option value="2">Visita 2</option>
+          <option value="3">Visita 3</option>
+        </select>
+      </label>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
           type="button"
           variant="outline"
           onClick={() => pickerInputRef.current?.click()}
+          disabled={!visitaSeleccionada}
         >
           Elegir archivos
         </Button>
         {!cameraOpen ? (
-          <Button type="button" variant="outline" onClick={onOpenCamera}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onOpenCamera}
+            disabled={!visitaSeleccionada}
+          >
             Abrir cámara
           </Button>
         ) : null}
       </div>
+      {!visitaSeleccionada ? (
+        <p className="mt-2 text-xs text-amber-700">
+          Primero seleccioná si las fotos corresponden a visita 1, 2 o 3.
+        </p>
+      ) : null}
       <input
         ref={pickerInputRef}
         type="file"
@@ -116,6 +149,9 @@ export const FormularioFotosSection = ({
                   className="h-14 w-14 rounded-lg border border-slate-200 object-cover"
                 />
                 <span className="truncate">{foto.nombre_archivo}</span>
+                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-700">
+                  {visitaLabel(foto.visita)}
+                </span>
               </button>
               <Button
                 type="button"

@@ -83,7 +83,7 @@ describe("buildMatrizCaracterizacionRow", () => {
     const row = buildMatrizCaracterizacionRow(f);
     expect(row).toHaveLength(76);
     expect(row.every((c) => typeof c === "string")).toBe(true);
-    expect(row[0]).toBe("1");
+    expect(row[0]).toBe("test-id");
     expect(row[1]).toBe("Entidad X");
     expect(row[7]).toBe("María López");
     expect(row[29]).toContain("-72.25");
@@ -111,8 +111,8 @@ describe("buildMatrizCaracterizacionRow", () => {
 
     const row = buildMatrizCaracterizacionRow(f);
     MATRIZ_ROW_CELL_SOURCES.forEach((src, i) => {
-      if (src.kind === "id") {
-        expect(row[i]).toBe("1");
+      if (src.kind === "id_formulario") {
+        expect(row[i]).toBe("test-id");
         return;
       }
       if (src.kind === "field") {

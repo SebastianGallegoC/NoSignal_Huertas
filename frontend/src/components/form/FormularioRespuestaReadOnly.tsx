@@ -46,6 +46,7 @@ export interface FormularioSnapshot {
     path?: string;
     serverFormId?: string;
     serverIndex?: number;
+    visita?: 1 | 2 | 3;
   }>;
 }
 
@@ -227,6 +228,11 @@ export const FormularioRespuestaReadOnly = ({
                   >
                     {f.nombre_archivo}
                   </figcaption>
+                  {f.visita ? (
+                    <div className="pb-1 text-center text-[10px] font-semibold text-teal-800">
+                      Visita {f.visita}
+                    </div>
+                  ) : null}
                 </figure>
               </button>
             ))}

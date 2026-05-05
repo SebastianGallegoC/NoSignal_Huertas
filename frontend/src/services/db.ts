@@ -1,6 +1,12 @@
 import Dexie, { type Table } from 'dexie';
 
 export type SyncStatus = 'PENDIENTE' | 'SINCRONIZANDO' | 'ERROR';
+export type VisitaNumero = 1 | 2 | 3;
+export type FotoForm = {
+  nombre_archivo: string;
+  data: string;
+  visita?: VisitaNumero;
+};
 
 export interface OfflineForm {
   id_formulario: string;
@@ -12,10 +18,7 @@ export interface OfflineForm {
     precision: number;
   };
   datos_formulario: Record<string, unknown>;
-  fotos: Array<{
-    nombre_archivo: string;
-    data: string;
-  }>;
+  fotos: FotoForm[];
   estado_sincronizacion: SyncStatus;
   fecha_intento?: string;
   errores_sync?: number;

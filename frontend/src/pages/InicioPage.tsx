@@ -6,7 +6,7 @@ export const InicioPage = () => {
       <div className="mx-auto w-full max-w-4xl">
         <header className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-700">NoSignal</p>
-          <h1 className="mt-2 text-3xl font-semibold">Selecciona una opción</h1>
+          <h1 className="mt-2 text-3xl font-semibold">Selecciona una opción111111111111</h1>
           <p className="mt-2 text-sm text-slate-600">Puedes diligenciar un nuevo formulario o revisar los ya registrados.</p>
         </header>
 

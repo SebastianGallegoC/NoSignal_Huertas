@@ -5,8 +5,11 @@ import { usePwaRegister } from "@/hooks/usePwaRegister";
 const UPDATE_PROMPT_SUPPRESS_KEY = "nosignal:pwa:update-clicked-at";
 const UPDATE_PROMPT_SUPPRESS_MS = 3 * 60 * 1000;
 
-/** Ventana desde el primer montaje para considerar "recién abrió la app" y auto-actualizar. */
-export const COLD_START_UPDATE_WINDOW_MS = 5_000;
+/**
+ * Ventana desde el primer montaje para auto-actualizar sin modal.
+ * En móvil/PWA suele tardar varios segundos en detectar el SW nuevo; 5s era corto.
+ */
+export const COLD_START_UPDATE_WINDOW_MS = 30_000;
 
 const shouldStartSuppressed = (): boolean => {
   try {

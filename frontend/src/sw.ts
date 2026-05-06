@@ -1,14 +1,22 @@
 /// <reference lib="webworker" />
 
 import { BackgroundSyncPlugin } from 'workbox-background-sync';
+import { clientsClaim } from 'workbox-core';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { CacheFirst, NetworkOnly, StaleWhileRevalidate } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
 
 declare let self: ServiceWorkerGlobalScope;
 
 precacheAndRoute(self.__WB_MANIFEST);
 cleanupOutdatedCaches();
+clientsClaim();
+
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    void self.skipWaiting();
+  }
+});
 
 // App shell offline: permite abrir rutas del SPA sin red.
 const navigationHandler = createHandlerBoundToURL('/index.html');
@@ -26,14 +34,15 @@ registerRoute(
   'POST',
 );
 
-// Recursos estáticos de mismo origen: cache rápido y actualización en background.
+// Recursos estáticos de mismo origen: prioriza red para aplicar cambios en la primera recarga.
 registerRoute(
   ({ request, url }) =>
     url.origin === self.location.origin &&
     ['style', 'script', 'worker'].includes(request.destination),
-  new StaleWhileRevalidate({
-    // Bump tras cambios de chunks/rutas para no mezclar JS viejo con index nuevo.
-    cacheName: 'nosignal-static-v2',
+  new NetworkFirst({
+    // Evita quedar con JS/CSS viejo tras pulsar "Actualizar ahora".
+    cacheName: 'nosignal-static-v3',
+    networkTimeoutSeconds: 4,
   }),
 );
 

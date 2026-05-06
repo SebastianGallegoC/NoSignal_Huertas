@@ -1,8 +1,11 @@
 /** Sesión de depuración del agente (sin PII: solo hashes y longitudes). */
 
-const AGENT_ENDPOINT =
-  "http://127.0.0.1:7372/ingest/e4602b70-4a74-459a-902b-0df6473208d3";
 const DEBUG_SESSION_ID = "7b6477";
+
+/** Solo si definís `VITE_AGENT_INGEST_URL` en `.env.local` (recolector local activo). */
+const AGENT_INGEST_URL = String(
+  import.meta.env.VITE_AGENT_INGEST_URL ?? "",
+).trim();
 
 export function beneficiaryFieldProbe(
   datos: Record<string, unknown> | undefined,
@@ -37,7 +40,10 @@ export function agentSessionLog(payload: {
     data: payload.data ?? {},
   };
   console.debug("[dbg-session-7b6477]", body);
-  void fetch(AGENT_ENDPOINT, {
+  if (!AGENT_INGEST_URL) {
+    return;
+  }
+  void fetch(AGENT_INGEST_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

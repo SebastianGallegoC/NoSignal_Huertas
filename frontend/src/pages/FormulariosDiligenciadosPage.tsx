@@ -73,6 +73,47 @@ function fotosConVisitaDesdeDetalle(source: FotoSnapshotLike[]): FotoForm[] {
   return out;
 }
 
+/** Si no hay fotos en base64 local, descarga desde el API usando metadatos del servidor. */
+async function hydrateFotosFromServerIfNeeded(
+  row: DisplayRow,
+  existing: FotoForm[],
+): Promise<FotoForm[]> {
+  if (existing.length > 0) {
+    return existing;
+  }
+  const serverRow = row.server;
+  if (!serverRow || (serverRow.fotos?.length ?? 0) === 0) {
+    return existing;
+  }
+  const serverFotos = mapServerFotos(
+    serverRow.id_formulario,
+    serverRow.fotos ?? [],
+  );
+  const fetched: FotoForm[] = [];
+  for (const foto of serverFotos) {
+    if (foto.serverFormId == null || foto.serverIndex == null) {
+      continue;
+    }
+    try {
+      const data = await fetchFormPhotoDataUrl(
+        foto.serverFormId,
+        foto.serverIndex,
+      );
+      fetched.push({
+        nombre_archivo: foto.nombre_archivo,
+        data,
+        visita:
+          foto.visita === 1 || foto.visita === 2 || foto.visita === 3
+            ? foto.visita
+            : 1,
+      });
+    } catch {
+      // Si una foto falla, continuamos con las demás.
+    }
+  }
+  return fetched;
+}
+
 const estadoClass: Record<HistorialForm["estado"], string> = {
   PENDIENTE: "text-amber-700",
   ERROR: "text-rose-700",
@@ -561,45 +602,7 @@ export const FormulariosDiligenciadosPage = () => {
       const formValues = buildFormValuesFromSnapshot(detailSnapshot);
       const sourceFotos = detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [];
       let fotos = fotosConVisitaDesdeDetalle(sourceFotos);
-      const shouldHydrateFromServer =
-        fotos.length === 0 &&
-        !!row.server &&
-        (row.server.fotos?.length ?? 0) > 0;
-      if (shouldHydrateFromServer) {
-        const serverRow = row.server;
-        if (!serverRow) {
-          return;
-        }
-        const serverFotos = mapServerFotos(
-          serverRow.id_formulario,
-          serverRow.fotos ?? [],
-        );
-        const fetched: FotoForm[] = [];
-        for (const foto of serverFotos) {
-          if (foto.serverFormId == null || foto.serverIndex == null) {
-            continue;
-          }
-          try {
-            const data = await fetchFormPhotoDataUrl(
-              foto.serverFormId,
-              foto.serverIndex,
-            );
-            fetched.push({
-              nombre_archivo: foto.nombre_archivo,
-              data,
-              visita:
-                foto.visita === 1 || foto.visita === 2 || foto.visita === 3
-                  ? foto.visita
-                  : 1,
-            });
-          } catch {
-            // Si una foto falla, continuamos con las demás.
-          }
-        }
-        if (fetched.length > 0) {
-          fotos = fetched;
-        }
-      }
+      fotos = await hydrateFotosFromServerIfNeeded(row, fotos);
       const gps = detailSnapshot.gps
         ? {
             latitud: detailSnapshot.gps.latitud,
@@ -721,45 +724,7 @@ export const FormulariosDiligenciadosPage = () => {
         let fotos = fotosConVisitaDesdeDetalle(
           detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [],
         );
-        const shouldHydrateFromServer =
-          fotos.length === 0 &&
-          !!row.server &&
-          (row.server.fotos?.length ?? 0) > 0;
-        if (shouldHydrateFromServer) {
-          const serverRow = row.server;
-          if (!serverRow) {
-            return;
-          }
-          const serverFotos = mapServerFotos(
-            serverRow.id_formulario,
-            serverRow.fotos ?? [],
-          );
-          const fetched: FotoForm[] = [];
-          for (const foto of serverFotos) {
-            if (foto.serverFormId == null || foto.serverIndex == null) {
-              continue;
-            }
-            try {
-              const data = await fetchFormPhotoDataUrl(
-                foto.serverFormId,
-                foto.serverIndex,
-              );
-              fetched.push({
-                nombre_archivo: foto.nombre_archivo,
-                data,
-                visita:
-                  foto.visita === 1 || foto.visita === 2 || foto.visita === 3
-                    ? foto.visita
-                    : 1,
-              });
-            } catch {
-              // Si una foto falla, continuamos con las demás.
-            }
-          }
-          if (fetched.length > 0) {
-            fotos = fetched;
-          }
-        }
+        fotos = await hydrateFotosFromServerIfNeeded(row, fotos);
         if (fotos.length === 0) {
           setDescargaFotosError("Este formulario no tiene fotos cargadas.");
           return;
@@ -893,7 +858,8 @@ export const FormulariosDiligenciadosPage = () => {
     setDescargaFotosError(null);
     setDescargandoTodasFotos(true);
     try {
-      const exportables = rows.map((row) => {
+      const exportables = [];
+      for (const row of rows) {
         const datos =
           (row.historial?.datos_formulario as
             | Record<string, unknown>
@@ -924,14 +890,15 @@ export const FormulariosDiligenciadosPage = () => {
                     : 1,
               }
             : { latitud: 0, longitud: 0, precision: 1 };
-        const fotos = fotosConVisitaDesdeDetalle(
+        let fotos = fotosConVisitaDesdeDetalle(
           (
             row.historial?.fotos ??
             row.precargaSolo?.fotos ??
             []
           ) as FotoSnapshotLike[],
         );
-        return {
+        fotos = await hydrateFotosFromServerIfNeeded(row, fotos);
+        exportables.push({
           id_formulario: row.id_formulario,
           id_usuario:
             row.server?.id_usuario ??
@@ -947,8 +914,8 @@ export const FormulariosDiligenciadosPage = () => {
           datos_formulario: datos,
           fotos,
           estado_sincronizacion: "PENDIENTE" as const,
-        };
-      });
+        });
+      }
       await downloadPhotosBulkZip(exportables);
     } catch (e) {
       setDescargaFotosError(
@@ -1113,7 +1080,7 @@ export const FormulariosDiligenciadosPage = () => {
               type="button"
               variant="outline"
               onClick={() => void descargarExcelDeTodos()}
-              disabled={descargandoTodosExcel}
+              disabled={descargandoTodosExcel || !online}
               className="w-full sm:w-auto"
             >
               {descargandoTodosExcel
@@ -1124,7 +1091,7 @@ export const FormulariosDiligenciadosPage = () => {
               type="button"
               variant="outline"
               onClick={() => void descargarFotosDeTodos()}
-              disabled={descargandoTodasFotos}
+              disabled={descargandoTodasFotos || !online}
               className="w-full sm:w-auto"
             >
               {descargandoTodasFotos

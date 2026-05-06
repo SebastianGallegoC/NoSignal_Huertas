@@ -11,6 +11,18 @@ const mockUpdateServiceWorker = vi.fn<(reloadPage?: boolean) => Promise<void>>()
 
 const pwaMock = { needRefresh: false };
 
+const routerMock = { pathname: "/inicio" };
+
+vi.mock("react-router-dom", () => ({
+  useLocation: () => ({
+    pathname: routerMock.pathname,
+    search: "",
+    hash: "",
+    state: null,
+    key: "test",
+  }),
+}));
+
 vi.mock("@/hooks/usePwaRegister", () => ({
   usePwaRegister: () => ({
     needRefresh: [pwaMock.needRefresh, vi.fn()],
@@ -33,6 +45,7 @@ describe("ReloadPrompt", () => {
     mockUpdateServiceWorker.mockReset();
     mockUpdateServiceWorker.mockResolvedValue(undefined);
     pwaMock.needRefresh = false;
+    routerMock.pathname = "/inicio";
     window.sessionStorage.clear();
   });
 
@@ -139,6 +152,23 @@ describe("ReloadPrompt", () => {
     });
     pwaMock.needRefresh = true;
     await rerenderPrompt();
+    expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
+    expect(container?.textContent ?? "").toContain("Actualizar ahora");
+  });
+
+  it("no auto-aplica en /formulario (muestra modal)", async () => {
+    routerMock.pathname = "/formulario";
+    pwaMock.needRefresh = true;
+    await renderPrompt();
+    expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
+    expect(container?.textContent ?? "").toContain("Hay una nueva versión disponible.");
+    expect(container?.textContent ?? "").toContain("Actualizar ahora");
+  });
+
+  it("no auto-aplica en /formularios-diligenciados (muestra modal)", async () => {
+    routerMock.pathname = "/formularios-diligenciados";
+    pwaMock.needRefresh = true;
+    await renderPrompt();
     expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
     expect(container?.textContent ?? "").toContain("Actualizar ahora");
   });

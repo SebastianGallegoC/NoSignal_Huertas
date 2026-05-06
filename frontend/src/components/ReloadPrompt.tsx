@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 import { usePwaRegister } from "@/hooks/usePwaRegister";
 
@@ -10,6 +11,19 @@ const UPDATE_PROMPT_SUPPRESS_MS = 3 * 60 * 1000;
  * En móvil/PWA suele tardar varios segundos en detectar el SW nuevo; 5s era corto.
  */
 export const COLD_START_UPDATE_WINDOW_MS = 30_000;
+
+/**
+ * Rutas donde no se auto-recarga al detectar actualización (evita cortar edición / listas).
+ */
+export function shouldBlockPwaAutoReload(pathname: string): boolean {
+  if (pathname === "/formulario") {
+    return true;
+  }
+  if (pathname === "/formularios" || pathname.startsWith("/formularios-diligenciados")) {
+    return true;
+  }
+  return false;
+}
 
 const shouldStartSuppressed = (): boolean => {
   try {
@@ -25,6 +39,7 @@ const shouldStartSuppressed = (): boolean => {
 };
 
 export const ReloadPrompt = () => {
+  const { pathname } = useLocation();
   const {
     needRefresh: [needRefresh],
     updateServiceWorker,
@@ -81,13 +96,16 @@ export const ReloadPrompt = () => {
     if (!needRefresh || coldStartTriggeredRef.current) {
       return;
     }
+    if (shouldBlockPwaAutoReload(pathname)) {
+      return;
+    }
     const elapsed = Date.now() - mountedAtRef.current;
     if (elapsed <= COLD_START_UPDATE_WINDOW_MS) {
       coldStartTriggeredRef.current = true;
       setAutoApplying(true);
       void handleReload();
     }
-  }, [needRefresh, handleReload]);
+  }, [needRefresh, handleReload, pathname]);
 
   const showUpdatingOverlay =
     needRefresh && (autoApplying || isUpdating);

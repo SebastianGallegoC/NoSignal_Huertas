@@ -717,9 +717,48 @@ export const FormulariosDiligenciadosPage = () => {
       setDescargaFotosError(null);
       setDescargandoFotosId(row.id_formulario);
       try {
-        const fotos = fotosConVisitaDesdeDetalle(
+        let fotos = fotosConVisitaDesdeDetalle(
           detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [],
         );
+        const shouldHydrateFromServer =
+          fotos.length === 0 &&
+          !!row.server &&
+          (row.server.fotos?.length ?? 0) > 0;
+        if (shouldHydrateFromServer) {
+          const serverRow = row.server;
+          if (!serverRow) {
+            return;
+          }
+          const serverFotos = mapServerFotos(
+            serverRow.id_formulario,
+            serverRow.fotos ?? [],
+          );
+          const fetched: FotoForm[] = [];
+          for (const foto of serverFotos) {
+            if (foto.serverFormId == null || foto.serverIndex == null) {
+              continue;
+            }
+            try {
+              const data = await fetchFormPhotoDataUrl(
+                foto.serverFormId,
+                foto.serverIndex,
+              );
+              fetched.push({
+                nombre_archivo: foto.nombre_archivo,
+                data,
+                visita:
+                  foto.visita === 1 || foto.visita === 2 || foto.visita === 3
+                    ? foto.visita
+                    : 1,
+              });
+            } catch {
+              // Si una foto falla, continuamos con las demás.
+            }
+          }
+          if (fetched.length > 0) {
+            fotos = fetched;
+          }
+        }
         if (fotos.length === 0) {
           setDescargaFotosError("Este formulario no tiene fotos cargadas.");
           return;
@@ -1266,6 +1305,17 @@ export const FormulariosDiligenciadosPage = () => {
                             snapshot={detailSnapshot}
                           />
                           <div className="flex flex-wrap items-center gap-2">
+                            {(() => {
+                              const fotosDetalle =
+                                detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [];
+                              const fotosConData =
+                                fotosConVisitaDesdeDetalle(fotosDetalle).length > 0;
+                              const hayFotosServidor =
+                                (row.server?.fotos?.length ?? 0) > 0;
+                              const canDownloadPhotos =
+                                !detailLoading && (fotosConData || hayFotosServidor);
+                              return (
+                                <>
                             {row.server ? (
                               <Button
                                 type="button"
@@ -1310,7 +1360,7 @@ export const FormulariosDiligenciadosPage = () => {
                                 void descargarFotosDelRegistro(row)
                               }
                               disabled={
-                                detailLoading ||
+                                !canDownloadPhotos ||
                                 descargandoFotosId === row.id_formulario
                               }
                             >
@@ -1318,6 +1368,9 @@ export const FormulariosDiligenciadosPage = () => {
                                 ? "Descargando fotos…"
                                 : "Descargar fotos"}
                             </Button>
+                                </>
+                              );
+                            })()}
                             {precargaMap.has(row.id_formulario) ? (
                               <span className="text-xs text-slate-500">
                                 Precargado el{" "}

@@ -33,6 +33,7 @@ import {
   downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
 } from "@/services/matrizCaracterizacionExport";
+import { downloadPhotosZip } from "@/services/photosExport";
 import {
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
@@ -139,6 +140,12 @@ export const FormulariosDiligenciadosPage = () => {
     null,
   );
   const [descargaExcelError, setDescargaExcelError] = useState<string | null>(
+    null,
+  );
+  const [descargandoFotosId, setDescargandoFotosId] = useState<string | null>(
+    null,
+  );
+  const [descargaFotosError, setDescargaFotosError] = useState<string | null>(
     null,
   );
   const [descargandoTodosExcel, setDescargandoTodosExcel] = useState(false);
@@ -699,6 +706,72 @@ export const FormulariosDiligenciadosPage = () => {
     [detailPrecarga, detailSnapshot],
   );
 
+  const descargarFotosDelRegistro = useCallback(
+    async (row: DisplayRow) => {
+      if (!detailSnapshot) {
+        setDescargaFotosError(
+          "No hay datos cargados del formulario para exportar fotos.",
+        );
+        return;
+      }
+      setDescargaFotosError(null);
+      setDescargandoFotosId(row.id_formulario);
+      try {
+        const fotos = fotosConVisitaDesdeDetalle(
+          detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [],
+        );
+        if (fotos.length === 0) {
+          setDescargaFotosError("Este formulario no tiene fotos cargadas.");
+          return;
+        }
+        const fallbackGps = row.server
+          ? {
+              latitud: row.server.latitud,
+              longitud: row.server.longitud,
+              precision: row.server.precision ?? 1,
+            }
+          : { latitud: 0, longitud: 0, precision: 1 };
+        const gps = detailSnapshot.gps
+          ? {
+              latitud: detailSnapshot.gps.latitud,
+              longitud: detailSnapshot.gps.longitud,
+              precision:
+                typeof detailSnapshot.gps.precision === "number" &&
+                detailSnapshot.gps.precision > 0
+                  ? detailSnapshot.gps.precision
+                  : 1,
+            }
+          : fallbackGps;
+
+        await downloadPhotosZip({
+          id_formulario: row.id_formulario,
+          id_usuario:
+            row.server?.id_usuario ??
+            row.historial?.id_usuario ??
+            "sin_usuario",
+          fecha_hora:
+            row.server?.fecha_hora ??
+            row.historial?.fecha_envio ??
+            row.historial?.fecha_hora ??
+            new Date().toISOString(),
+          gps,
+          datos_formulario: detailSnapshot.datos_formulario ?? {},
+          fotos,
+          estado_sincronizacion: "PENDIENTE",
+        });
+      } catch (e) {
+        setDescargaFotosError(
+          e instanceof Error
+            ? e.message
+            : "No se pudo descargar el ZIP de fotos de este formulario.",
+        );
+      } finally {
+        setDescargandoFotosId(null);
+      }
+    },
+    [detailPrecarga, detailSnapshot],
+  );
+
   const descargarExcelDeTodos = useCallback(async () => {
     setDescargaExcelError(null);
     setDescargandoTodosExcel(true);
@@ -1233,18 +1306,17 @@ export const FormulariosDiligenciadosPage = () => {
                             <Button
                               type="button"
                               variant="outline"
+                              onClick={() =>
+                                void descargarFotosDelRegistro(row)
+                              }
                               disabled={
-                                !online || eliminandoId === row.id_formulario
+                                detailLoading ||
+                                descargandoFotosId === row.id_formulario
                               }
-                              title={
-                                !online
-                                  ? "Requiere conexión a internet"
-                                  : undefined
-                              }
-                              onClick={() => solicitarEliminar(row)}
-                              className="border-rose-200 text-rose-800 hover:bg-rose-50"
                             >
-                              Eliminar de este equipo
+                              {descargandoFotosId === row.id_formulario
+                                ? "Descargando fotos…"
+                                : "Descargar fotos"}
                             </Button>
                             {precargaMap.has(row.id_formulario) ? (
                               <span className="text-xs text-slate-500">
@@ -1267,6 +1339,12 @@ export const FormulariosDiligenciadosPage = () => {
                           selectedId === row.id_formulario ? (
                             <p className="text-xs text-rose-600">
                               {descargaExcelError}
+                            </p>
+                          ) : null}
+                          {descargaFotosError &&
+                          selectedId === row.id_formulario ? (
+                            <p className="text-xs text-rose-600">
+                              {descargaFotosError}
                             </p>
                           ) : null}
                           {precargaLoadingId === row.id_formulario ? (

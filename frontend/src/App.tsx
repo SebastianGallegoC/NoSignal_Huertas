@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { ProtectedRoute } from "@/components/routing/ProtectedRoute";
+import { ReloadPrompt } from "@/components/ReloadPrompt";
 
 const LoginPage = lazy(() =>
   import("@/pages/LoginPage").then((mod) => ({ default: mod.LoginPage })),
@@ -22,45 +23,48 @@ const FormulariosDiligenciadosPage = lazy(() =>
 
 function App() {
   return (
-    <Suspense fallback={<div className="p-4 text-sm text-slate-600">Cargando…</div>}>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route
-          path="/inicio"
-          element={
-            <ProtectedRoute>
-              <InicioPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/formulario"
-          element={
-            <ProtectedRoute>
-              <FormularioPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/formularios-diligenciados"
-          element={
-            <ProtectedRoute>
-              <FormulariosDiligenciadosPage />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/formularios"
-          element={
-            <ProtectedRoute>
-              <Navigate to="/formularios-diligenciados" replace />
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/" element={<Navigate to="/inicio" replace />} />
-        <Route path="*" element={<Navigate to="/inicio" replace />} />
-      </Routes>
-    </Suspense>
+    <>
+      <Suspense fallback={<div className="p-4 text-sm text-slate-600">Cargando…</div>}>
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route
+            path="/inicio"
+            element={
+              <ProtectedRoute>
+                <InicioPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/formulario"
+            element={
+              <ProtectedRoute>
+                <FormularioPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/formularios-diligenciados"
+            element={
+              <ProtectedRoute>
+                <FormulariosDiligenciadosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/formularios"
+            element={
+              <ProtectedRoute>
+                <Navigate to="/formularios-diligenciados" replace />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/" element={<Navigate to="/inicio" replace />} />
+          <Route path="*" element={<Navigate to="/inicio" replace />} />
+        </Routes>
+      </Suspense>
+      <ReloadPrompt />
+    </>
   );
 }
 

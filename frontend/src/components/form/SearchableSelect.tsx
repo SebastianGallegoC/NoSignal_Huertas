@@ -7,7 +7,7 @@ import type { FormFieldKey, FormValues } from '@/types/formFields';
 export type SelectOption = { value: string; label: string };
 
 const inputClass =
-  'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600';
+  'mt-1 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600';
 
 const inputWithChevronClass = `${inputClass} pr-9 appearance-none`;
 
@@ -80,7 +80,7 @@ const SearchableSelectInner = ({ field, options, label, listId, error }: InnerPr
   };
 
   return (
-    <label className="flex flex-col text-sm font-medium text-slate-800">
+    <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800">
       {label}
       <div className="relative mt-1">
         <input

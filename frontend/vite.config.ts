@@ -11,7 +11,7 @@ export default defineConfig({
       strategies: 'injectManifest',
       srcDir: 'src',
       filename: 'sw.ts',
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['icons.svg', 'pwa-192x192.svg', 'pwa-512x512.svg'],
       injectManifest: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,

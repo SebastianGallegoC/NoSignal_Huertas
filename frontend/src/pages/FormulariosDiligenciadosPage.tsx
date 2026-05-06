@@ -33,7 +33,7 @@ import {
   downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
 } from "@/services/matrizCaracterizacionExport";
-import { downloadPhotosZip } from "@/services/photosExport";
+import { downloadPhotosBulkZip, downloadPhotosZip } from "@/services/photosExport";
 import {
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
@@ -149,6 +149,7 @@ export const FormulariosDiligenciadosPage = () => {
     null,
   );
   const [descargandoTodosExcel, setDescargandoTodosExcel] = useState(false);
+  const [descargandoTodasFotos, setDescargandoTodasFotos] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [eliminarError, setEliminarError] = useState<string | null>(null);
   const [online, setOnline] = useState(
@@ -888,6 +889,78 @@ export const FormulariosDiligenciadosPage = () => {
     }
   }, [rows]);
 
+  const descargarFotosDeTodos = useCallback(async () => {
+    setDescargaFotosError(null);
+    setDescargandoTodasFotos(true);
+    try {
+      const exportables = rows.map((row) => {
+        const datos =
+          (row.historial?.datos_formulario as
+            | Record<string, unknown>
+            | undefined) ??
+          (row.server?.datos_formulario as
+            | Record<string, unknown>
+            | undefined) ??
+          row.precargaSolo?.datos_formulario ??
+          {};
+        const gps = row.historial?.gps
+          ? {
+              latitud: row.historial.gps.latitud,
+              longitud: row.historial.gps.longitud,
+              precision:
+                typeof row.historial.gps.precision === "number" &&
+                row.historial.gps.precision > 0
+                  ? row.historial.gps.precision
+                  : 1,
+            }
+          : row.server
+            ? {
+                latitud: row.server.latitud,
+                longitud: row.server.longitud,
+                precision:
+                  typeof row.server.precision === "number" &&
+                  row.server.precision > 0
+                    ? row.server.precision
+                    : 1,
+              }
+            : { latitud: 0, longitud: 0, precision: 1 };
+        const fotos = fotosConVisitaDesdeDetalle(
+          (
+            row.historial?.fotos ??
+            row.precargaSolo?.fotos ??
+            []
+          ) as FotoSnapshotLike[],
+        );
+        return {
+          id_formulario: row.id_formulario,
+          id_usuario:
+            row.server?.id_usuario ??
+            row.historial?.id_usuario ??
+            "sin_usuario",
+          fecha_hora:
+            row.server?.fecha_hora ??
+            row.historial?.fecha_envio ??
+            row.historial?.fecha_hora ??
+            row.precargaSolo?.fecha_precarga ??
+            new Date().toISOString(),
+          gps,
+          datos_formulario: datos,
+          fotos,
+          estado_sincronizacion: "PENDIENTE" as const,
+        };
+      });
+      await downloadPhotosBulkZip(exportables);
+    } catch (e) {
+      setDescargaFotosError(
+        e instanceof Error
+          ? e.message
+          : "No se pudo descargar el ZIP de fotos consolidado.",
+      );
+    } finally {
+      setDescargandoTodasFotos(false);
+    }
+  }, [rows]);
+
   const solicitarEliminar = useCallback((row: DisplayRow) => {
     setEliminarError(null);
     setDeletePasswordError(null);
@@ -1047,6 +1120,17 @@ export const FormulariosDiligenciadosPage = () => {
                 ? "Descargando Excel (todos)…"
                 : "Descargar Excel de todos"}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void descargarFotosDeTodos()}
+              disabled={descargandoTodasFotos}
+              className="w-full sm:w-auto"
+            >
+              {descargandoTodasFotos
+                ? "Descargando fotos (todos)…"
+                : "Descargar Fotos de todos"}
+            </Button>
             <Link
               to="/inicio"
               className="inline-flex w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm shadow-sm sm:w-auto"
@@ -1059,6 +1143,12 @@ export const FormulariosDiligenciadosPage = () => {
         {eliminarError ? (
           <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900">
             {eliminarError}
+          </div>
+        ) : null}
+
+        {descargaFotosError ? (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900">
+            {descargaFotosError}
           </div>
         ) : null}
 

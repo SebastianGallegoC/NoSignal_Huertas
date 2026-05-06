@@ -80,7 +80,7 @@ function ReadOnlySection({
             <dt className="shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500 sm:w-[42%]">
               {fieldLabel(key)}
             </dt>
-            <dd className="min-w-0 text-sm text-slate-900 sm:text-right">
+            <dd className="min-w-0 break-words text-sm text-slate-900 [overflow-wrap:anywhere] sm:text-right">
               {displayFieldValue(key, datos[key])}
             </dd>
           </div>

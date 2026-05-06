@@ -7,7 +7,7 @@ import type { FormFieldKey, FormValues } from '@/types/formFields';
 import { SearchableSelect, type SelectOption } from './SearchableSelect';
 
 const inputClass =
-  'mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600';
+  'mt-1 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600';
 
 const SELECT_FALLBACK: SelectOption[] = [{ value: '', label: '' }];
 
@@ -26,7 +26,7 @@ export const FormFieldRow = ({ name, register, control, error }: FormFieldRowPro
 
   if (kind === 'textarea') {
     return (
-      <label className="flex flex-col text-sm font-medium text-slate-800 md:col-span-2">
+      <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800 md:col-span-2">
         {label}
         <textarea rows={3} className={inputClass} {...register(name)} />
         {error ? <span className="mt-1 text-xs text-red-600">{error}</span> : null}
@@ -59,7 +59,7 @@ export const FormFieldRow = ({ name, register, control, error }: FormFieldRowPro
   const gpsReadOnlyClass = isGpsDerivedField ? ' bg-slate-100 text-slate-600' : '';
 
   return (
-    <label className="flex flex-col text-sm font-medium text-slate-800">
+    <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800">
       {label}
       <input
         className={`${inputClass}${gpsReadOnlyClass}`}

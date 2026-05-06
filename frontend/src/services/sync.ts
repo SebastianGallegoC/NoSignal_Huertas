@@ -190,6 +190,20 @@ export const syncPendingForms = async (): Promise<SyncRunResult> => {
         gps: form.gps,
         fotos: form.fotos,
       });
+      // Si existe una precarga automática, refrescarla con la versión servidor resultante
+      try {
+        const prec = await db.precargas.get(form.id_formulario);
+        if (prec?.auto_precarga) {
+          // importar dinámico para evitar ciclos en tiempo de módulo
+          const mod = await import('@/services/precargaService');
+          if (mod?.downloadAndSavePrecarga) {
+            void mod.downloadAndSavePrecarga(form.id_formulario, { optimizePhotos: true });
+          }
+        }
+      } catch {
+        // ignore
+      }
+
       await db.formularios.delete(form.id_formulario);
       result.sent += 1;
     } catch (error) {

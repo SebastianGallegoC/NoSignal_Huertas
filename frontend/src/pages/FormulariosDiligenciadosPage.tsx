@@ -6,6 +6,11 @@ import {
   type ReactNode,
 } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { usePrecargaWatcher } from "@/hooks/usePrecargaWatcher";
+import {
+  enableAutoPrecarga,
+  disableAutoPrecarga,
+} from "@/services/precargaService";
 
 import { ConfirmDeleteFormModal } from "@/components/ConfirmDeleteFormModal";
 import {
@@ -19,7 +24,10 @@ import {
 } from "@/components/form/FormularioRespuestaReadOnly";
 import { Button } from "@/components/ui/button";
 import { ACCESS_TOKEN_KEY } from "@/lib/authStorage";
-import { formatDateTimeNoSeconds, formatISODateTimeForDisplay } from "@/lib/formatDateTime";
+import {
+  formatDateTimeNoSeconds,
+  formatISODateTimeForDisplay,
+} from "@/lib/formatDateTime";
 import {
   deleteFormFromApi,
   fetchFormPhotoDataUrl,
@@ -28,12 +36,20 @@ import {
   type FormReadItem,
 } from "@/services/api";
 import { saveFormDraft, type FormDraftV1 } from "@/services/formDraftStorage";
-import { db, type FotoForm, type HistorialForm, type PrecargaForm } from "@/services/db";
+import {
+  db,
+  type FotoForm,
+  type HistorialForm,
+  type PrecargaForm,
+} from "@/services/db";
 import {
   downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
 } from "@/services/matrizCaracterizacionExport";
-import { downloadPhotosBulkZip, downloadPhotosZip } from "@/services/photosExport";
+import {
+  downloadPhotosBulkZip,
+  downloadPhotosZip,
+} from "@/services/photosExport";
 import {
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
@@ -202,9 +218,30 @@ export const FormulariosDiligenciadosPage = () => {
   const [deletePasswordError, setDeletePasswordError] = useState<string | null>(
     null,
   );
+  const [autoPrecargaStates, setAutoPrecargaStates] = useState<
+    Map<string, boolean>
+  >(new Map());
+  const [togglingAutoPrecargaId, setTogglingAutoPrecargaId] = useState<
+    string | null
+  >(null);
+
+  // Activar el watcher de precarga automática
+  const hasToken =
+    typeof localStorage !== "undefined" &&
+    !!localStorage.getItem(ACCESS_TOKEN_KEY);
+  usePrecargaWatcher(hasToken);
 
   const precargaMap = useMemo(() => {
     return new Map(precargas.map((p) => [p.id_formulario, p]));
+  }, [precargas]);
+
+  // Actualizar autoPrecargaStates cada vez que precargas cambie
+  useEffect(() => {
+    const newStates = new Map<string, boolean>();
+    for (const p of precargas) {
+      newStates.set(p.id_formulario, p.auto_precarga ?? false);
+    }
+    setAutoPrecargaStates(newStates);
   }, [precargas]);
 
   const rowsFiltrados = useMemo(() => {
@@ -891,11 +928,9 @@ export const FormulariosDiligenciadosPage = () => {
               }
             : { latitud: 0, longitud: 0, precision: 1 };
         let fotos = fotosConVisitaDesdeDetalle(
-          (
-            row.historial?.fotos ??
+          (row.historial?.fotos ??
             row.precargaSolo?.fotos ??
-            []
-          ) as FotoSnapshotLike[],
+            []) as FotoSnapshotLike[],
         );
         fotos = await hydrateFotosFromServerIfNeeded(row, fotos);
         exportables.push({
@@ -1016,6 +1051,41 @@ export const FormulariosDiligenciadosPage = () => {
     setDeletePasswordError(null);
     setPendingDeleteRow(null);
   }, [eliminandoId]);
+
+  const toggleAutoPrecarga = useCallback(
+    async (row: DisplayRow) => {
+      if (togglingAutoPrecargaId === row.id_formulario) {
+        return;
+      }
+      if (!navigator.onLine) {
+        setPrecargaError(
+          "Necesitás conexión para cambiar la precarga automática.",
+        );
+        return;
+      }
+      setTogglingAutoPrecargaId(row.id_formulario);
+      setPrecargaError(null);
+      try {
+        const isCurrentlyEnabled =
+          autoPrecargaStates.get(row.id_formulario) ?? false;
+        if (isCurrentlyEnabled) {
+          await disableAutoPrecarga(row.id_formulario);
+        } else {
+          await enableAutoPrecarga(row.id_formulario);
+        }
+        await loadList();
+      } catch (e) {
+        setPrecargaError(
+          e instanceof Error
+            ? e.message
+            : "No se pudo cambiar la precarga automática.",
+        );
+      } finally {
+        setTogglingAutoPrecargaId(null);
+      }
+    },
+    [autoPrecargaStates, togglingAutoPrecargaId, loadList],
+  );
 
   const deleteModalDescription: ReactNode = useMemo(() => {
     if (!pendingDeleteRow) {
@@ -1235,8 +1305,9 @@ export const FormulariosDiligenciadosPage = () => {
                 row.historial?.fecha_hora ??
                 row.server?.fecha_hora ??
                 row.precargaSolo?.fecha_precarga;
-              const ultimaActualizacionLabel =
-                formatISODateTimeForDisplay(ultimaActualizacionIso);
+              const ultimaActualizacionLabel = formatISODateTimeForDisplay(
+                ultimaActualizacionIso,
+              );
               const effectiveDetailSource: DetailSourceKind =
                 isOpen && detailSource != null
                   ? detailSource
@@ -1364,67 +1435,104 @@ export const FormulariosDiligenciadosPage = () => {
                           <div className="flex flex-wrap items-center gap-2">
                             {(() => {
                               const fotosDetalle =
-                                detailPrecarga?.fotos ?? detailSnapshot.fotos ?? [];
+                                detailPrecarga?.fotos ??
+                                detailSnapshot.fotos ??
+                                [];
                               const fotosConData =
-                                fotosConVisitaDesdeDetalle(fotosDetalle).length > 0;
+                                fotosConVisitaDesdeDetalle(fotosDetalle)
+                                  .length > 0;
                               const hayFotosServidor =
                                 (row.server?.fotos?.length ?? 0) > 0;
                               const canDownloadPhotos =
-                                !detailLoading && (fotosConData || hayFotosServidor);
+                                !detailLoading &&
+                                (fotosConData || hayFotosServidor);
+                              const isAutoPrecargaEnabled =
+                                autoPrecargaStates.get(row.id_formulario) ??
+                                false;
                               return (
                                 <>
-                            {row.server ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => void precargarRow(row)}
-                                disabled={
-                                  precargaLoadingId === row.id_formulario
-                                }
-                              >
-                                {precargaMap.has(row.id_formulario)
-                                  ? "Actualizar precarga"
-                                  : "Precargar para visita"}
-                              </Button>
-                            ) : null}
-                            <Button
-                              type="button"
-                              onClick={() => {
-                                void usarComoBase(row);
-                              }}
-                            >
-                              Editar este formulario
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() =>
-                                void descargarExcelDelRegistro(row)
-                              }
-                              disabled={
-                                detailLoading ||
-                                descargandoExcelId === row.id_formulario
-                              }
-                            >
-                              {descargandoExcelId === row.id_formulario
-                                ? "Descargando Excel…"
-                                : "Descargar Excel"}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              onClick={() =>
-                                void descargarFotosDelRegistro(row)
-                              }
-                              disabled={
-                                !canDownloadPhotos ||
-                                descargandoFotosId === row.id_formulario
-                              }
-                            >
-                              {descargandoFotosId === row.id_formulario
-                                ? "Descargando fotos…"
-                                : "Descargar fotos"}
-                            </Button>
+                                  {row.server ? (
+                                    <>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        onClick={() => void precargarRow(row)}
+                                        disabled={
+                                          precargaLoadingId ===
+                                          row.id_formulario
+                                        }
+                                      >
+                                        {precargaMap.has(row.id_formulario)
+                                          ? "Actualizar precarga"
+                                          : "Precargar para visita"}
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant={
+                                          isAutoPrecargaEnabled
+                                            ? "default"
+                                            : "outline"
+                                        }
+                                        onClick={() =>
+                                          void toggleAutoPrecarga(row)
+                                        }
+                                        disabled={
+                                          togglingAutoPrecargaId ===
+                                          row.id_formulario
+                                        }
+                                        className={
+                                          isAutoPrecargaEnabled
+                                            ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                                            : ""
+                                        }
+                                      >
+                                        {togglingAutoPrecargaId ===
+                                        row.id_formulario
+                                          ? "Cambiando…"
+                                          : isAutoPrecargaEnabled
+                                            ? "✓ Precarga automática activa"
+                                            : "Activar precarga automática"}
+                                      </Button>
+                                    </>
+                                  ) : null}
+                                  <Button
+                                    type="button"
+                                    onClick={() => {
+                                      void usarComoBase(row);
+                                    }}
+                                  >
+                                    Editar este formulario
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                      void descargarExcelDelRegistro(row)
+                                    }
+                                    disabled={
+                                      detailLoading ||
+                                      descargandoExcelId === row.id_formulario
+                                    }
+                                  >
+                                    {descargandoExcelId === row.id_formulario
+                                      ? "Descargando Excel…"
+                                      : "Descargar Excel"}
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() =>
+                                      void descargarFotosDelRegistro(row)
+                                    }
+                                    disabled={
+                                      !canDownloadPhotos ||
+                                      descargandoFotosId === row.id_formulario
+                                    }
+                                  >
+                                    {descargandoFotosId === row.id_formulario
+                                      ? "Descargando fotos…"
+                                      : "Descargar fotos"}
+                                  </Button>
                                 </>
                               );
                             })()}

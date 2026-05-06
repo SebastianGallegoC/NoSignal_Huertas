@@ -190,6 +190,19 @@ export const listFormsFromApi = async (limit = 200): Promise<FormReadItem[]> => 
   return items;
 };
 
+/** Devuelve detalle de un formulario por id (incluye fotos como rutas en `fotos`). */
+export const fetchFormFromApi = async (formId: string): Promise<FormReadItem> => {
+  const url = `${API_BASE}/api/v1/forms/${encodeURIComponent(formId)}`;
+  const response = await fetch(url, {
+    headers: { ...authHeaders() },
+  });
+  if (!response.ok) {
+    const t = await response.text();
+    throw new Error(t || `forms_get_${response.status}`);
+  }
+  return (await response.json()) as FormReadItem;
+};
+
 export const postForm = async (payload: OfflineForm): Promise<Response> => {
   const body = payloadForApi(payload);
   // #region agent log

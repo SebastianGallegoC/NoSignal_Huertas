@@ -50,6 +50,8 @@ export interface PrecargaForm {
   datos_formulario: Record<string, unknown>;
   gps?: { latitud: number; longitud: number; precision?: number | null } | null;
   fotos?: OfflineForm['fotos'];
+  /** Flag local: cuando true, el watcher actualiza automáticamente la precarga */
+  auto_precarga?: boolean;
 }
 
 /** Formularios que el usuario ocultó en «diligenciados» en este equipo (sigue en servidor). */
@@ -92,13 +94,20 @@ export class NoSignalDB extends Dexie {
     this.version(5).stores({
       formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
       historialFormularios: '&id_formulario, estado, fecha_hora',
-      precargas: '&id_formulario, fecha_precarga',
+      precargas: '&id_formulario, fecha_precarga, auto_precarga',
       sesionLocal: 'id',
     });
     this.version(6).stores({
       formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
       historialFormularios: '&id_formulario, estado, fecha_hora',
-      precargas: '&id_formulario, fecha_precarga',
+      precargas: '&id_formulario, fecha_precarga, auto_precarga',
+      formulariosOcultos: '&id_formulario',
+      sesionLocal: 'id',
+    });
+    this.version(7).stores({
+      formularios: '&id_formulario, estado_sincronizacion, fecha_hora',
+      historialFormularios: '&id_formulario, estado, fecha_hora',
+      precargas: '&id_formulario, fecha_precarga, auto_precarga',
       formulariosOcultos: '&id_formulario',
       sesionLocal: 'id',
     });

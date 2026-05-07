@@ -1,14 +1,21 @@
-import React from "react";
 import { createRoot } from "react-dom/client";
 import { describe, it, expect } from "vitest";
 import { act } from "react";
 import { FormFieldRow } from "../FormFieldRow";
 import { useForm } from "react-hook-form";
+import type { FormFieldKey, FormValues } from "@/types/formFields";
 
-function Wrapper({ name, editable }: { name: any; editable?: boolean }) {
-  const { register, control } = useForm({ defaultValues: {} });
+function Wrapper({
+  name,
+  editable,
+}: {
+  name: FormFieldKey;
+  editable?: boolean;
+}) {
+  const { register, control } = useForm<FormValues>({
+    defaultValues: {} as FormValues,
+  });
   return (
-    // @ts-ignore - minimal props for rendering
     <FormFieldRow
       name={name}
       register={register}

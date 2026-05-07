@@ -39,16 +39,16 @@ export const FormularioOverviewPanel = ({
       </div>
 
       <div
-        className="mt-4 flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+        className="mt-4 flex w-full flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
         role="group"
         aria-label="Modo de coordenadas"
       >
-        <div className="inline-flex w-full rounded-xl border border-slate-200 bg-slate-50/90 p-1 sm:w-auto sm:min-w-[220px]">
+        <div className="inline-flex w-full rounded-xl border border-slate-200 bg-slate-50/90 p-1 lg:w-auto lg:min-w-[320px]">
           <button
             type="button"
             aria-pressed={isGps}
             onClick={() => onChangeModoCoordenadas("automatico")}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
+            className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition lg:flex-none lg:min-w-[150px] ${
               isGps
                 ? "bg-teal-600 text-white shadow-sm"
                 : "text-slate-600 hover:bg-white/80"
@@ -60,7 +60,7 @@ export const FormularioOverviewPanel = ({
             type="button"
             aria-pressed={!isGps}
             onClick={() => onChangeModoCoordenadas("manual")}
-            className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition sm:flex-none sm:px-4 ${
+            className={`flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition lg:flex-none lg:min-w-[150px] ${
               !isGps
                 ? "bg-teal-600 text-white shadow-sm"
                 : "text-slate-600 hover:bg-white/80"
@@ -75,7 +75,7 @@ export const FormularioOverviewPanel = ({
             type="button"
             onClick={onSolicitarGps}
             disabled={cargando}
-            className="w-full shrink-0 bg-teal-600 text-white hover:bg-teal-700 sm:w-auto"
+            className="w-full shrink-0 bg-teal-600 text-white hover:bg-teal-700 lg:w-auto"
           >
             {cargando ? "Buscando GPS…" : "Tomar ubicación"}
           </Button>

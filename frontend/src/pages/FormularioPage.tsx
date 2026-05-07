@@ -416,6 +416,14 @@ export const FormularioPage = () => {
     toSafeUserId,
     requiredFields: REQUIRED_FIELDS,
   });
+  const coordenadasSection = useMemo(
+    () => FORM_SECTIONS.find((section) => section.id === "coordenadas") ?? null,
+    [],
+  );
+  const formSectionsWithoutCoordinates = useMemo(
+    () => FORM_SECTIONS.filter((section) => section.id !== "coordenadas"),
+    [],
+  );
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-8 text-slate-900 sm:px-6">
@@ -507,6 +515,42 @@ export const FormularioPage = () => {
           className="flex flex-col gap-4"
           onSubmit={handleSubmit(onValid, onInvalid)}
         >
+          {coordenadasSection ? (
+            <details
+              key={coordenadasSection.id}
+              open={openSections.has(coordenadasSection.id)}
+              onToggle={(e) => {
+                const isOpen = (e.currentTarget as HTMLDetailsElement).open;
+                setOpenSections((prev) => {
+                  const next = new Set(prev);
+                  if (isOpen) {
+                    next.add(coordenadasSection.id);
+                  } else {
+                    next.delete(coordenadasSection.id);
+                  }
+                  return next;
+                });
+              }}
+              className="group rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"
+            >
+              <summary className="cursor-pointer text-sm font-semibold text-slate-900">
+                {coordenadasSection.title}
+              </summary>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                {coordenadasSection.fields.map((field) => (
+                  <FormFieldRow
+                    key={field}
+                    name={field}
+                    register={register}
+                    control={control}
+                    error={errors[field]?.message as string | undefined}
+                    editableGpsFields={modoCoordenadas === "manual"}
+                  />
+                ))}
+              </div>
+            </details>
+          ) : null}
+
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
             <h2 className="text-sm font-semibold text-slate-900">
               Usuario del registro
@@ -550,7 +594,7 @@ export const FormularioPage = () => {
             onClose={() => setPreviewFoto(null)}
           />
 
-          {FORM_SECTIONS.map((section) => (
+          {formSectionsWithoutCoordinates.map((section) => (
             <details
               key={section.id}
               open={openSections.has(section.id)}

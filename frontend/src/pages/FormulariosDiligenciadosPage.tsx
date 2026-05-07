@@ -618,6 +618,12 @@ export const FormulariosDiligenciadosPage = () => {
       if (eliminandoPrecargaId === row.id_formulario) {
         return;
       }
+      if (!navigator.onLine) {
+        setPrecargaError(
+          "Necesitás conexión para eliminar la precarga de este dispositivo.",
+        );
+        return;
+      }
       if (!precargaMap.has(row.id_formulario)) {
         return;
       }
@@ -1452,7 +1458,8 @@ export const FormulariosDiligenciadosPage = () => {
                                         : "Precargar para visita"}
                                     </Button>
                                   ) : null}
-                                  {precargaMap.has(row.id_formulario) ? (
+                                  {precargaMap.has(row.id_formulario) &&
+                                  online ? (
                                     <Button
                                       type="button"
                                       variant="outline"
@@ -1465,11 +1472,11 @@ export const FormulariosDiligenciadosPage = () => {
                                         eliminandoPrecargaId ===
                                           row.id_formulario
                                       }
-                                      className="border-slate-200 text-slate-800"
+                                      className="shrink-0 border-rose-200 text-rose-800 hover:bg-rose-50"
                                     >
                                       {eliminandoPrecargaId === row.id_formulario
-                                        ? "Quitando precarga…"
-                                        : "Quitar precarga"}
+                                        ? "Eliminando precarga…"
+                                        : "Eliminar precarga"}
                                     </Button>
                                   ) : null}
                                   <Button

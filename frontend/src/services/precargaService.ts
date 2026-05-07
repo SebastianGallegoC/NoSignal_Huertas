@@ -53,9 +53,14 @@ export async function downloadAndSavePrecarga(
   });
   const fotos = await Promise.all(fotosPromise);
 
+  const historial = await db.historialFormularios.get(formId);
+  const modoPrecarga =
+    historial?.modo_coordenadas === "manual" ? "manual" : "automatico";
+
   await db.precargas.put({
     id_formulario: resp.id_formulario,
     fecha_precarga: new Date().toISOString(),
+    modo_coordenadas: modoPrecarga,
     datos_formulario: resp.datos_formulario ?? {},
     gps:
       typeof (resp as any).latitud === 'number' && typeof (resp as any).longitud === 'number'

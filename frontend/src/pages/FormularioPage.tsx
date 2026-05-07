@@ -402,6 +402,7 @@ export const FormularioPage = () => {
     authUsername,
     draftUserKey,
     defaults,
+    modoCoordenadas,
     setBanner,
     setSubmitFeedback,
     setEnvioModal,

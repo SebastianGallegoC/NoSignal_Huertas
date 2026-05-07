@@ -23,6 +23,7 @@ type Args = {
   authUsername: string | null;
   draftUserKey: string;
   defaults: FormValues;
+  modoCoordenadas: "automatico" | "manual";
   setBanner: (v: string | null) => void;
   setSubmitFeedback: (v: string | null) => void;
   setEnvioModal: (v: FormEnvioResultState | null) => void;
@@ -48,6 +49,7 @@ type BuildPayloadArgs = {
   gps: { latitud: number; longitud: number; precision: number };
   fotos: FotoForm[];
   toSafeUserId: (raw: string) => string;
+  modoCoordenadas?: "automatico" | "manual";
 };
 
 const MIN_GPS_PRECISION_METERS = 0.1;
@@ -74,6 +76,7 @@ export const buildOfflinePayload = ({
   gps,
   fotos,
   toSafeUserId,
+  modoCoordenadas = "automatico",
 }: BuildPayloadArgs): OfflineForm => {
   const now = new Date().toISOString();
   const fechaPrimerEnvio = _originalFechaHora ?? now;
@@ -81,6 +84,7 @@ export const buildOfflinePayload = ({
   return {
     id_formulario: formId,
     id_usuario: toSafeUserId(idUsuario || authUsername || "sin_usuario"),
+    modo_coordenadas: modoCoordenadas === "manual" ? "manual" : "automatico",
     fecha_hora: fechaPrimerEnvio,
     fecha_actualizacion: fechaActualizacion,
     gps: {
@@ -116,6 +120,7 @@ export const useFormularioSubmit = ({
   authUsername,
   draftUserKey,
   defaults,
+  modoCoordenadas,
   setBanner,
   setSubmitFeedback,
   setEnvioModal,
@@ -134,8 +139,16 @@ export const useFormularioSubmit = ({
     setBanner(null);
     setSubmitFeedback("Validando formulario...");
     if (!gps) {
-      setBanner("Tomá la ubicación GPS antes de enviar.");
-      setSubmitFeedback("No se pudo enviar: falta ubicación GPS.");
+      setBanner(
+        modoCoordenadas === "manual"
+          ? "Completá latitud y longitud con valores válidos antes de enviar."
+          : "Tomá la ubicación GPS antes de enviar.",
+      );
+      setSubmitFeedback(
+        modoCoordenadas === "manual"
+          ? "No se pudo enviar: faltan coordenadas válidas."
+          : "No se pudo enviar: falta ubicación GPS.",
+      );
       return;
     }
     if (fotos.length > 15) {
@@ -155,6 +168,7 @@ export const useFormularioSubmit = ({
       gps,
       fotos,
       toSafeUserId,
+      modoCoordenadas,
     });
 
     const validationIssues = validateOfflineFormPayload(payload);

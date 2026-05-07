@@ -46,6 +46,27 @@ describe("useFormularioSubmit helpers", () => {
     expect(payload.id_usuario).toBe("usuario prueba");
     expect(payload.gps.precision).toBe(5);
     expect(payload.estado_sincronizacion).toBe("PENDIENTE");
+    expect(payload.modo_coordenadas).toBe("automatico");
+  });
+
+  it("buildOfflinePayload persiste modo_coordenadas manual", () => {
+    const values = buildEmptyValues();
+    values.nombre_actividad = "Actividad";
+
+    const payload = buildOfflinePayload({
+      values,
+      requiredFields: REQUIRED_FIELDS,
+      formId: "form-manual",
+      originalFechaHora: null,
+      idUsuario: "demo",
+      authUsername: null,
+      gps: { latitud: 4.1, longitud: -74.1, precision: 1 },
+      fotos: [],
+      toSafeUserId: (raw) => raw,
+      modoCoordenadas: "manual",
+    });
+
+    expect(payload.modo_coordenadas).toBe("manual");
   });
 
   it("buildOfflinePayload corrige precision GPS <= 0 a mínimo válido", () => {

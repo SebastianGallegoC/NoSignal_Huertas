@@ -32,6 +32,9 @@ describe('precargaService', () => {
 
       const mockDb = dbModule.db as any;
       mockDb.precargas = { put: vi.fn().mockResolvedValue(undefined) };
+      mockDb.historialFormularios = {
+        get: vi.fn().mockResolvedValue(undefined),
+      };
 
       await precargaService.downloadAndSavePrecarga('form-1');
 
@@ -62,6 +65,9 @@ describe('precargaService', () => {
 
       const mockDb = dbModule.db as any;
       mockDb.precargas = { put: vi.fn().mockResolvedValue(undefined) };
+      mockDb.historialFormularios = {
+        get: vi.fn().mockResolvedValue(undefined),
+      };
 
       await precargaService.downloadAndSavePrecarga('form-1');
 
@@ -88,12 +94,49 @@ describe('precargaService', () => {
 
       const mockDb = dbModule.db as any;
       mockDb.precargas = { put: vi.fn().mockResolvedValue(undefined) };
+      mockDb.historialFormularios = {
+        get: vi.fn().mockResolvedValue(undefined),
+      };
 
       await precargaService.downloadAndSavePrecarga('form-1');
 
       expect(mockDb.precargas.put).toHaveBeenCalled();
       const savedData = (mockDb.precargas.put as any).mock.calls[0][0];
       expect(savedData.auto_precarga).toBe(true);
+    });
+
+    it('copia modo_coordenadas manual desde historial local', async () => {
+      const mockForm = {
+        id_formulario: 'form-1',
+        id_usuario: 'user-1',
+        fecha_hora: '2026-05-04T12:00:00Z',
+        latitud: 1.23,
+        longitud: -76.5,
+        precision: 10,
+        datos_formulario: {},
+        fotos: [],
+      };
+
+      vi.spyOn(apiModule, 'fetchFormFromApi').mockResolvedValue(
+        mockForm as any,
+      );
+
+      const mockDb = dbModule.db as any;
+      mockDb.precargas = { put: vi.fn().mockResolvedValue(undefined) };
+      mockDb.historialFormularios = {
+        get: vi.fn().mockResolvedValue({
+          id_formulario: 'form-1',
+          id_usuario: 'u',
+          estado: 'ENVIADO',
+          fecha_hora: '2026-05-04T12:00:00Z',
+          modo_coordenadas: 'manual',
+        }),
+      };
+
+      await precargaService.downloadAndSavePrecarga('form-1');
+
+      const savedData = (mockDb.precargas.put as any).mock.calls[0][0];
+      expect(savedData.modo_coordenadas).toBe('manual');
     });
   });
 
@@ -135,6 +178,9 @@ describe('precargaService', () => {
       mockDb.precargas = {
         get: vi.fn().mockResolvedValue(undefined),
         put: vi.fn().mockResolvedValue(undefined),
+      };
+      mockDb.historialFormularios = {
+        get: vi.fn().mockResolvedValue(undefined),
       };
 
       vi.spyOn(apiModule, 'fetchFormFromApi').mockResolvedValue(

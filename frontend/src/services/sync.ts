@@ -44,6 +44,7 @@ export const enqueueForm = async (form: OfflineForm): Promise<void> => {
   await db.historialFormularios.put({
     id_formulario: form.id_formulario,
     id_usuario: form.id_usuario,
+    modo_coordenadas: form.modo_coordenadas,
     fecha_hora: form.fecha_hora,
     estado: 'PENDIENTE',
     fecha_envio: fechaEnvioCanonica,
@@ -189,6 +190,7 @@ export const syncPendingForms = async (): Promise<SyncRunResult> => {
         datos_formulario: form.datos_formulario,
         gps: form.gps,
         fotos: form.fotos,
+        modo_coordenadas: form.modo_coordenadas,
       });
       // Si existe una precarga automática, refrescarla con la versión servidor resultante
       try {

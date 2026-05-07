@@ -8,9 +8,13 @@ export type FotoForm = {
   visita?: VisitaNumero;
 };
 
+export type ModoCoordenadasForm = 'automatico' | 'manual';
+
 export interface OfflineForm {
   id_formulario: string;
   id_usuario: string;
+  /** Cómo se obtuvo la ubicación al guardar (para reabrir en el mismo modo). */
+  modo_coordenadas?: ModoCoordenadasForm;
   /** Fecha/hora del primer guardado (no cambia al reeditar el mismo formulario). */
   fecha_hora: string;
   /** Momento de este guardado / última modificación local (se envía al API como `fecha_actualizacion`). */
@@ -33,6 +37,7 @@ export type EstadoHistorial = 'PENDIENTE' | 'ERROR' | 'ENVIADO';
 export interface HistorialForm {
   id_formulario: string;
   id_usuario: string;
+  modo_coordenadas?: ModoCoordenadasForm;
   fecha_hora: string;
   estado: EstadoHistorial;
   fecha_envio?: string;
@@ -47,6 +52,7 @@ export interface HistorialForm {
 export interface PrecargaForm {
   id_formulario: string;
   fecha_precarga: string;
+  modo_coordenadas?: ModoCoordenadasForm;
   datos_formulario: Record<string, unknown>;
   gps?: { latitud: number; longitud: number; precision?: number | null } | null;
   fotos?: OfflineForm['fotos'];

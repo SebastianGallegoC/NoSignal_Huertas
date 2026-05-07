@@ -582,9 +582,15 @@ export const FormulariosDiligenciadosPage = () => {
             } => f !== null,
           );
 
+        const modoPrecarga =
+          row.historial?.modo_coordenadas === "manual"
+            ? "manual"
+            : "automatico";
+
         const precarga: PrecargaForm = {
           id_formulario: row.id_formulario,
           fecha_precarga: new Date().toISOString(),
+          modo_coordenadas: modoPrecarga,
           datos_formulario: snapshot.datos_formulario ?? {},
           gps: snapshot.gps ?? null,
           fotos: fotosPrecarga,
@@ -702,6 +708,11 @@ export const FormulariosDiligenciadosPage = () => {
           }
           return "";
         })(),
+        modoCoordenadas:
+          (detailPrecarga?.modo_coordenadas ??
+            row.historial?.modo_coordenadas) === "manual"
+            ? "manual"
+            : "automatico",
         formValues,
         fotos,
         gps,

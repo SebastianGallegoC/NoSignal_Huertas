@@ -680,6 +680,13 @@ export const FormulariosDiligenciadosPage = () => {
     if (eliminandoTodasPrecargas || precargas.length === 0) {
       return;
     }
+    if (!navigator.onLine) {
+      setPrecargaError(
+        "Necesitás conexión a internet para quitar las precargas.",
+      );
+      setModalEliminarTodasPrecargas(false);
+      return;
+    }
     setEliminandoTodasPrecargas(true);
     setPrecargaError(null);
     try {
@@ -1196,6 +1203,12 @@ export const FormulariosDiligenciadosPage = () => {
     };
   }, [modalEliminarTodasPrecargas, eliminandoTodasPrecargas]);
 
+  useEffect(() => {
+    if (!online && modalEliminarTodasPrecargas) {
+      setModalEliminarTodasPrecargas(false);
+    }
+  }, [online, modalEliminarTodasPrecargas]);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
       <div className="mx-auto w-full max-w-5xl">
@@ -1221,13 +1234,20 @@ export const FormulariosDiligenciadosPage = () => {
               type="button"
               variant="outline"
               onClick={() => {
+                if (!navigator.onLine) {
+                  return;
+                }
                 setPrecargaError(null);
                 setModalEliminarTodasPrecargas(true);
               }}
               disabled={
+                !online ||
                 precargas.length === 0 ||
                 eliminandoTodasPrecargas ||
                 eliminandoPrecargaId !== null
+              }
+              title={
+                !online ? "Requiere conexión a internet" : undefined
               }
               className="w-full border-amber-200 text-amber-950 hover:bg-amber-50 sm:w-auto"
             >

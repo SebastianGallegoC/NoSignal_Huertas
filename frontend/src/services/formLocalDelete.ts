@@ -26,3 +26,8 @@ export async function loadHiddenFormIds(): Promise<Set<string>> {
   const rows = await db.formulariosOcultos.toArray();
   return new Set(rows.map((r) => r.id_formulario));
 }
+
+/** Borra todas las copias precargadas (IndexedDB). No elimina historial ni datos en servidor. */
+export async function clearAllPrecargas(): Promise<void> {
+  await db.precargas.clear();
+}

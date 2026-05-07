@@ -46,6 +46,7 @@ import {
   downloadPhotosZip,
 } from "@/services/photosExport";
 import {
+  clearAllPrecargas,
   eliminarCopiaLocalFormulario,
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
@@ -217,6 +218,10 @@ export const FormulariosDiligenciadosPage = () => {
   const [deletePasswordError, setDeletePasswordError] = useState<string | null>(
     null,
   );
+  const [modalEliminarTodasPrecargas, setModalEliminarTodasPrecargas] =
+    useState(false);
+  const [eliminandoTodasPrecargas, setEliminandoTodasPrecargas] =
+    useState(false);
 
   const precargaMap = useMemo(() => {
     return new Map(precargas.map((p) => [p.id_formulario, p]));
@@ -670,6 +675,44 @@ export const FormulariosDiligenciadosPage = () => {
       selectedId,
     ],
   );
+
+  const confirmarEliminarTodasPrecargas = useCallback(async () => {
+    if (eliminandoTodasPrecargas || precargas.length === 0) {
+      return;
+    }
+    setEliminandoTodasPrecargas(true);
+    setPrecargaError(null);
+    try {
+      await clearAllPrecargas();
+      setModalEliminarTodasPrecargas(false);
+      const visible = await loadList();
+      if (selectedId) {
+        const fresh = visible.find((r) => r.id_formulario === selectedId);
+        if (fresh) {
+          await selectRow(fresh, { refreshOnly: true });
+        } else {
+          setSelectedId(null);
+          setDetailSnapshot(null);
+          setDetailSource(null);
+          setDetailPrecarga(null);
+        }
+      }
+    } catch (e) {
+      setPrecargaError(
+        e instanceof Error
+          ? e.message
+          : "No se pudieron eliminar las copias precargadas.",
+      );
+    } finally {
+      setEliminandoTodasPrecargas(false);
+    }
+  }, [
+    eliminandoTodasPrecargas,
+    precargas.length,
+    loadList,
+    selectedId,
+    selectRow,
+  ]);
 
   const usarComoBase = useCallback(
     async (row: DisplayRow) => {
@@ -1135,6 +1178,24 @@ export const FormulariosDiligenciadosPage = () => {
     );
   }, [pendingDeleteRow]);
 
+  useEffect(() => {
+    if (!modalEliminarTodasPrecargas) {
+      return;
+    }
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !eliminandoTodasPrecargas) {
+        setModalEliminarTodasPrecargas(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [modalEliminarTodasPrecargas, eliminandoTodasPrecargas]);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
       <div className="mx-auto w-full max-w-5xl">
@@ -1155,6 +1216,26 @@ export const FormulariosDiligenciadosPage = () => {
               className="w-full sm:w-auto"
             >
               Recargar
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setPrecargaError(null);
+                setModalEliminarTodasPrecargas(true);
+              }}
+              disabled={
+                precargas.length === 0 ||
+                eliminandoTodasPrecargas ||
+                eliminandoPrecargaId !== null
+              }
+              className="w-full border-amber-200 text-amber-950 hover:bg-amber-50 sm:w-auto"
+            >
+              {eliminandoTodasPrecargas
+                ? "Quitando precargas…"
+                : precargas.length === 0
+                  ? "Quitar todas las precargas"
+                  : `Quitar todas las precargas (${precargas.length})`}
             </Button>
             <Button
               type="button"
@@ -1190,6 +1271,12 @@ export const FormulariosDiligenciadosPage = () => {
         {eliminarError ? (
           <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900">
             {eliminarError}
+          </div>
+        ) : null}
+
+        {precargaError ? (
+          <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50/90 px-4 py-3 text-sm text-rose-900">
+            {precargaError}
           </div>
         ) : null}
 
@@ -1549,11 +1636,6 @@ export const FormulariosDiligenciadosPage = () => {
                               </span>
                             ) : null}
                           </div>
-                          {precargaError && selectedId === row.id_formulario ? (
-                            <p className="text-xs text-rose-600">
-                              {precargaError}
-                            </p>
-                          ) : null}
                           {descargaExcelError &&
                           selectedId === row.id_formulario ? (
                             <p className="text-xs text-rose-600">
@@ -1581,6 +1663,64 @@ export const FormulariosDiligenciadosPage = () => {
           </div>
         )}
       </div>
+
+      {modalEliminarTodasPrecargas ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="presentation"
+        >
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
+            aria-label="Cerrar"
+            disabled={eliminandoTodasPrecargas}
+            onClick={() => {
+              if (!eliminandoTodasPrecargas) {
+                setModalEliminarTodasPrecargas(false);
+              }
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="eliminar-todas-precargas-title"
+            className="relative z-10 w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 shadow-xl ring-1 ring-amber-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2
+              id="eliminar-todas-precargas-title"
+              className="text-lg font-semibold text-slate-900"
+            >
+              ¿Quitar todas las copias precargadas?
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              Se eliminarán <strong>{precargas.length}</strong> precarga
+              {precargas.length === 1 ? "" : "s"} guardada
+              {precargas.length === 1 ? "" : "s"} en este dispositivo para uso
+              sin conexión. El historial local y los datos en servidor no se
+              modifican. Esta acción no se puede deshacer.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={eliminandoTodasPrecargas}
+                onClick={() => setModalEliminarTodasPrecargas(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                className="bg-amber-700 text-white hover:bg-amber-800"
+                disabled={eliminandoTodasPrecargas || precargas.length === 0}
+                onClick={() => void confirmarEliminarTodasPrecargas()}
+              >
+                {eliminandoTodasPrecargas ? "Quitando…" : "Sí, quitar todas"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ConfirmDeleteFormModal
         open={!!pendingDeleteRow}

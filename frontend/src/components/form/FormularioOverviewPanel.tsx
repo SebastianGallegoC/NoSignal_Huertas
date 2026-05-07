@@ -67,25 +67,64 @@ export const FormularioOverviewPanel = ({
           {gps ? (
             <div className="mt-4 overflow-hidden rounded-xl border border-teal-100 bg-slate-50">
               <div className="h-48 overflow-hidden">
-                <iframe
-                  title="Mapa de ubicación capturada"
-                  className="h-[calc(100%+36px)] w-full"
-                  src={buildMapUrl(gps.latitud, gps.longitud)}
-                  loading="lazy"
-                  style={{ marginBottom: "-36px" }}
-                />
+                {typeof navigator !== "undefined" && navigator.onLine ? (
+                  <iframe
+                    title="Mapa de ubicación capturada"
+                    className="h-[calc(100%+36px)] w-full"
+                    src={buildMapUrl(gps.latitud, gps.longitud)}
+                    loading="lazy"
+                    style={{ marginBottom: "-36px" }}
+                  />
+                ) : (
+                  <div className="flex h-48 w-full items-center justify-center bg-slate-100">
+                    <div className="text-center">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="96"
+                        height="96"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="#0f766e"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="mx-auto mb-2"
+                      >
+                        <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 1 1 18 0z" />
+                        <circle cx="12" cy="10" r="2" />
+                      </svg>
+                      <div className="text-sm font-medium text-slate-700">
+                        Sin conexión: mapa no disponible.
+                      </div>
+                      <div className="mt-1 text-xs text-slate-600">
+                        Lat: {gps.latitud.toFixed(6)} · Lon:{" "}
+                        {gps.longitud.toFixed(6)}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="px-3 py-2 text-xs text-slate-700">
                 Lat: {gps.latitud.toFixed(6)} · Lon: {gps.longitud.toFixed(6)} ·
                 Precisión: {gps.precision.toFixed(1)} m
               </div>
               <a
-                className="block px-3 pb-3 text-xs font-medium text-teal-800 underline"
-                href={buildExternalMapUrl(gps.latitud, gps.longitud)}
+                className={`block px-3 pb-3 text-xs font-medium ${navigator.onLine ? "text-teal-800 underline" : "text-slate-400"}`}
+                href={
+                  navigator.onLine
+                    ? buildExternalMapUrl(gps.latitud, gps.longitud)
+                    : undefined
+                }
                 target="_blank"
                 rel="noreferrer"
+                aria-disabled={!navigator.onLine}
+                onClick={(e) => {
+                  if (!navigator.onLine) e.preventDefault();
+                }}
               >
-                Abrir ubicación en OpenStreetMap
+                {navigator.onLine
+                  ? "Abrir ubicación en OpenStreetMap"
+                  : "Abrir ubicación (requiere conexión)"}
               </a>
             </div>
           ) : null}
@@ -102,7 +141,9 @@ export const FormularioOverviewPanel = ({
             Errores sync
           </h2>
           <p className="mt-2 text-4xl font-semibold">{erroresSync}</p>
-          <p className="text-sm text-slate-600">Registros con error de envío.</p>
+          <p className="text-sm text-slate-600">
+            Registros con error de envío.
+          </p>
         </div>
       </section>
 

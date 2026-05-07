@@ -9,7 +9,7 @@ export const InicioPage = () => {
             NoSignal
           </p>
           <h1 className="mt-2 text-3xl font-semibold">
-            Selecciona una opción  V.1.1
+            Selecciona una opción  V.1.2
           </h1>
           <p className="mt-2 text-sm text-slate-600">
             Puedes diligenciar un nuevo formulario o revisar los ya registrados.

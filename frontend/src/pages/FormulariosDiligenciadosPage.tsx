@@ -1285,7 +1285,7 @@ export const FormulariosDiligenciadosPage = () => {
         ) : rowsFiltrados.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
             Ningún registro coincide con los filtros (nombre del beneficiario o
-            rango de fechas). Probá otro texto, ampliar fechas o usar «Limpiar
+            rango de fechas). Prueba otro texto, ampliar fechas o usar «Limpiar
             filtros».
           </div>
         ) : (
@@ -1360,7 +1360,7 @@ export const FormulariosDiligenciadosPage = () => {
                           Beneficiario: {tituloUsuario}
                         </p>
                         <p className="text-sm text-slate-600">
-                          Fecha de envío / del formulario: {tituloFechaLabel}
+                          Fecha de envío del formulario: {tituloFechaLabel}
                         </p>
                         <p className="text-sm text-slate-600">
                           Última actualización: {ultimaActualizacionLabel}

@@ -20,6 +20,20 @@ export const FORM_SECTIONS: readonly FormSectionDef[] = [
     ],
   },
   {
+    id: 'coordenadas',
+    title: 'Coordenadas (grados / minutos / segundos)',
+    fields: [
+      'x_grados',
+      'x_minutos',
+      'x_segundos',
+      'longitud',
+      'y_grados',
+      'y_minutos',
+      'y_segundos',
+      'latitud',
+    ],
+  },
+  {
     id: 'beneficiario',
     title: 'Beneficiario y contacto',
     fields: [

@@ -112,8 +112,7 @@ export const FormEnvioResultModal = ({
                 Matriz de caracterización (Excel)
               </p>
               <p className="mt-1 text-xs text-slate-600">
-                Podés descargar un archivo con la misma estructura que la hoja
-                «F-PSA-08» de la matriz oficial (columnas de caracterización
+                Se descarga un archivo con la misma estructura de la matriz oficial (columnas de caracterización
                 social).
               </p>
               {excelError ? (

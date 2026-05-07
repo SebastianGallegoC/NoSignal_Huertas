@@ -12,7 +12,8 @@ type Props = {
   erroresSync: number;
   ultimosErrores: SyncErrorItem[];
   onSolicitarGps: () => void;
-  onAbrirManual: () => void;
+  modoCoordenadas: "automatico" | "manual";
+  onChangeModoCoordenadas: (modo: "automatico" | "manual") => void;
   buildMapUrl: (lat: number, lon: number) => string;
   buildExternalMapUrl: (lat: number, lon: number) => string;
 };
@@ -27,7 +28,8 @@ export const FormularioOverviewPanel = ({
   erroresSync,
   ultimosErrores,
   onSolicitarGps,
-  onAbrirManual,
+  modoCoordenadas,
+  onChangeModoCoordenadas,
   buildMapUrl,
   buildExternalMapUrl,
 }: Props) => {
@@ -57,27 +59,63 @@ export const FormularioOverviewPanel = ({
                   ? `Error: ${error}`
                   : "Sin ubicación registrada"}
           </p>
-          <div className="mt-3 flex gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 border-teal-200 text-teal-800 hover:bg-teal-50"
-              onClick={onSolicitarGps}
-              disabled={cargando}
-            >
-              {cargando ? "Buscando GPS…" : "GPS automático"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 border-teal-200 text-teal-800 hover:bg-teal-50"
-              onClick={onAbrirManual}
-              disabled={cargando}
-            >
-              Ingresar manualmente
-            </Button>
+          <div className="mt-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <label className="text-sm font-medium text-slate-700">
+                Ubicación
+              </label>
+              <div className="relative inline-flex items-center">
+                <div
+                  role="switch"
+                  tabIndex={0}
+                  aria-checked={modoCoordenadas === "automatico"}
+                  onClick={() => {
+                    if (modoCoordenadas === "automatico") {
+                      onChangeModoCoordenadas("manual");
+                    } else {
+                      onChangeModoCoordenadas("automatico");
+                      onSolicitarGps();
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      if (modoCoordenadas === "automatico") {
+                        onChangeModoCoordenadas("manual");
+                      } else {
+                        onChangeModoCoordenadas("automatico");
+                        onSolicitarGps();
+                      }
+                    }
+                  }}
+                  className={`relative inline-flex h-8 w-14 items-center rounded-full border ${modoCoordenadas === "automatico" ? "bg-teal-600 border-teal-600" : "bg-white border-slate-200"}`}
+                >
+                  <span className="sr-only">Alternar modo de coordenadas</span>
+                  <span
+                    className={`block h-6 w-6 rounded-full bg-white shadow transform transition-transform ${modoCoordenadas === "automatico" ? "translate-x-6" : "translate-x-1"}`}
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {modoCoordenadas === "automatico" ? (
+                <Button
+                  type="button"
+                  onClick={onSolicitarGps}
+                  disabled={cargando}
+                  className="bg-teal-600 text-white"
+                >
+                  {cargando ? "Buscando GPS…" : "Tomar ubicación"}
+                </Button>
+              ) : null}
+              <div className="text-sm text-slate-500">
+                {modoCoordenadas === "automatico"
+                  ? "Usando GPS del dispositivo"
+                  : "Editar coordenadas manualmente"}
+              </div>
+            </div>
           </div>
-          {gps ? (
+          {modoCoordenadas === "automatico" && gps ? (
             <div className="mt-4 overflow-hidden rounded-xl border border-teal-100 bg-slate-50">
               <div className="h-48 overflow-hidden">
                 {typeof navigator !== "undefined" && navigator.onLine ? (

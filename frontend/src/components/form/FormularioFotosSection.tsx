@@ -43,8 +43,7 @@ export const FormularioFotosSection = ({
     <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
       <h2 className="text-sm font-semibold text-slate-900">Fotografías (0 a 15)</h2>
       <p className="text-xs text-slate-500">
-        Podés seleccionar archivos o capturar desde la app. Se comprimen a máx.
-        1280 px antes de guardar.
+        Podés seleccionar archivos o capturar desde la app.
       </p>
       <p className="mt-1 text-xs text-slate-600">Cargadas: {fotos.length}</p>
       <label className="mt-3 block text-sm font-medium text-slate-800">

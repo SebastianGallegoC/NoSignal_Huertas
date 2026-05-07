@@ -53,6 +53,19 @@ export const enqueueForm = async (form: OfflineForm): Promise<void> => {
     gps: form.gps,
     fotos: form.fotos,
   });
+
+  /** Si ya había copia precargada para este id, alinearla con el guardado (p. ej. edición pendiente offline). */
+  const existingPrecarga = await db.precargas.get(form.id_formulario);
+  if (existingPrecarga) {
+    await db.precargas.put({
+      ...existingPrecarga,
+      fecha_precarga: new Date().toISOString(),
+      modo_coordenadas: form.modo_coordenadas,
+      datos_formulario: form.datos_formulario,
+      gps: form.gps,
+      fotos: form.fotos,
+    });
+  }
 };
 
 export const countPendingForms = async (): Promise<number> => {

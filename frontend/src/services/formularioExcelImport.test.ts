@@ -1,0 +1,111 @@
+import ExcelJS from "exceljs";
+import { describe, expect, it } from "vitest";
+
+import {
+  MATRIZ_F_PSA_HEADERS,
+  MATRIZ_SHEET_NAME,
+} from "@/services/matrizCaracterizacionExport";
+
+import {
+  parseFechaCellForDatos,
+  parsePlantillaWorkbook,
+} from "./formularioExcelImport";
+
+async function buildMinimalPlantillaBuffer(
+  row8Values: (string | number | null)[],
+): Promise<ArrayBuffer> {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
+  MATRIZ_F_PSA_HEADERS.forEach((h, i) => {
+    ws.getCell(7, i + 1).value = h;
+  });
+  for (let c = 0; c < 76; c++) {
+    const v = row8Values[c];
+    if (v != null && v !== "") {
+      ws.getCell(8, c + 1).value = v;
+    }
+  }
+  const buf = await wb.xlsx.writeBuffer();
+  const u8 = new Uint8Array(buf as ArrayBuffer);
+  return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+}
+
+describe("parseFechaCellForDatos", () => {
+  it("convierte DD/MM/AAAA a YYYY-MM-DD", () => {
+    expect(parseFechaCellForDatos("15/03/2026")).toBe("2026-03-15");
+  });
+
+  it("deja prefijo ISO", () => {
+    expect(parseFechaCellForDatos("2026-05-01T12:00:00Z")).toBe("2026-05-01");
+  });
+});
+
+describe("parsePlantillaWorkbook", () => {
+  it("importa una fila con LONGITUD/LATITUD y genera OfflineForm", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "María Pérez";
+    row[29] = "-74.08175";
+    row[33] = "4.60971";
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "demo_user");
+
+    expect(errors).toHaveLength(0);
+    expect(ok).toHaveLength(1);
+    expect(ok[0].id_usuario).toBe("demo_user");
+    expect(ok[0].fotos).toEqual([]);
+    expect(ok[0].gps).toEqual({
+      latitud: 4.60971,
+      longitud: -74.08175,
+      precision: 5,
+    });
+    expect(ok[0].datos_formulario.nombres_apellidos_beneficiario).toBe(
+      "María Pérez",
+    );
+    expect(ok[0].modo_coordenadas).toBe("manual");
+    expect(ok[0].id_formulario).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+  });
+
+  it("rechaza fila sin coordenadas", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Sin GPS";
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "demo_user");
+
+    expect(ok).toHaveLength(0);
+    expect(errors.some((e) => e.row === 8)).toBe(true);
+    expect(errors[0].message).toMatch(/LONGITUD|LATITUD/i);
+  });
+
+  it("rechaza archivo si la fila 7 no coincide con la plantilla", async () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
+    ws.getCell(7, 1).value = "NO ES ID";
+    for (let i = 1; i < 76; i++) {
+      ws.getCell(7, i + 1).value = MATRIZ_F_PSA_HEADERS[i];
+    }
+    const buf = await wb.xlsx.writeBuffer();
+    const u8 = new Uint8Array(buf as ArrayBuffer);
+    const buffer = u8.buffer.slice(
+      u8.byteOffset,
+      u8.byteOffset + u8.byteLength,
+    );
+
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "u");
+    expect(ok).toHaveLength(0);
+    expect(errors[0].row).toBe(7);
+  });
+
+  it("rechaza id_usuario vacío", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[29] = "-74";
+    row[33] = "4";
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "  ");
+    expect(ok).toHaveLength(0);
+    expect(errors[0].row).toBe(0);
+  });
+});

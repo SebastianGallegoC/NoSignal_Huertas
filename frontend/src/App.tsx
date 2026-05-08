@@ -20,6 +20,11 @@ const FormulariosDiligenciadosPage = lazy(() =>
     default: mod.FormulariosDiligenciadosPage,
   })),
 );
+const ImportarFormulariosPage = lazy(() =>
+  import("@/pages/ImportarFormulariosPage").then((mod) => ({
+    default: mod.ImportarFormulariosPage,
+  })),
+);
 
 function App() {
   return (
@@ -48,6 +53,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <FormulariosDiligenciadosPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/importar-formularios"
+            element={
+              <ProtectedRoute>
+                <ImportarFormulariosPage />
               </ProtectedRoute>
             }
           />

@@ -91,7 +91,7 @@ export const InicioPage = () => {
           </p>
         </header>
 
-        <section className="grid gap-4 md:grid-cols-2">
+        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link
             to="/formulario"
             className="rounded-2xl border border-teal-100 bg-white/90 p-6 shadow-[0_18px_40px_-35px_rgba(15,118,110,0.6)] transition hover:-translate-y-0.5"
@@ -115,6 +115,20 @@ export const InicioPage = () => {
             <p className="mt-2 text-sm text-slate-600">
               Historial de este equipo y, si hay sesión, formularios ya
               guardados en el servidor.
+            </p>
+          </Link>
+
+          <Link
+            to="/importar-formularios"
+            className="rounded-2xl border border-indigo-100 bg-white/90 p-6 shadow-[0_18px_40px_-35px_rgba(79,70,229,0.35)] transition hover:-translate-y-0.5 md:col-span-2 lg:col-span-1"
+          >
+            <h2 className="text-lg font-semibold text-indigo-900">
+              Importar formularios
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Cargá datos desde Excel (plantilla PLANTILLA.xlsx): campos del
+              formulario y coordenadas, sin fotos. Quedan en cola para
+              sincronizar.
             </p>
           </Link>
         </section>

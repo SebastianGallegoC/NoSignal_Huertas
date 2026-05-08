@@ -216,8 +216,19 @@ export const fetchFormFromApi = async (formId: string): Promise<FormReadItem> =>
   return (await response.json()) as FormReadItem;
 };
 
+/** Misma forma que sw.ts cuando no hay red: evita `fetch` y el ruido en consola (POST … 503). */
+function syntheticOfflineFormsPostResponse(): Response {
+  return new Response(JSON.stringify({ detail: 'offline' }), {
+    status: 503,
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+  });
+}
+
 export const postForm = async (payload: OfflineForm): Promise<Response> => {
   const body = payloadForApi(payload);
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    return syntheticOfflineFormsPostResponse();
+  }
   // #region agent log
   agentSessionLog({
     hypothesisId: "H1",

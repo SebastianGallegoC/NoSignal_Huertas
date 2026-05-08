@@ -2,6 +2,10 @@ import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { ImportPreviewRowCard } from "@/components/import/ImportPreviewRowCard";
+import {
+  ImportResultModal,
+  type ImportResultVariant,
+} from "@/components/import/ImportResultModal";
 import { Button } from "@/components/ui/button";
 import type { ImportPreviewRowPatch } from "@/components/import/ImportPreviewRowCard";
 import {
@@ -39,6 +43,11 @@ export const ImportarFormulariosPage = () => {
   const [previewRows, setPreviewRows] = useState<ImportPreviewRow[] | null>(
     null,
   );
+  const [importResultModal, setImportResultModal] = useState<{
+    variant: ImportResultVariant;
+    title: string;
+    message: string;
+  } | null>(null);
 
   const validCount = useMemo(
     () => previewRows?.filter((r) => r.isValid).length ?? 0,
@@ -59,6 +68,7 @@ export const ImportarFormulariosPage = () => {
   const onFile = useCallback(
     async (file: File | null) => {
       setMessage(null);
+      setImportResultModal(null);
       setPreviewRows(null);
       setPreviewErrors([]);
       setFileLabel(null);
@@ -131,7 +141,6 @@ export const ImportarFormulariosPage = () => {
     }
     const idUsuario = toSafeUserId(authUsername ?? "");
     setBusyImport(true);
-    setMessage(null);
     try {
       let n = 0;
       const failedRows: number[] = [];
@@ -153,25 +162,41 @@ export const ImportarFormulariosPage = () => {
         }
       }
       if (failedRows.length === 0 && n > 0) {
-        setMessage(
-          `Se importaron ${n} formulario(s) a la cola local. Podés sincronizar cuando tengas conexión.`,
-        );
+        setImportResultModal({
+          variant: "success",
+          title: "Importación correcta",
+          message: `Se importaron ${n} formulario(s) a la cola local. Podés sincronizar cuando tengas conexión.`,
+        });
         resetPreview();
       } else if (n > 0 && failedRows.length > 0) {
-        setMessage(
-          `Se importaron ${n} formulario(s). No se pudo completar la importación en la(s) fila(s) ${failedRows.join(", ")} (revisá la vista previa).`,
-        );
-      } else if (n === 0) {
-        setMessage(
-          "No se importó ningún registro. Asegurate de tener al menos una fila marcada como válida.",
-        );
+        setImportResultModal({
+          variant: "warning",
+          title: "Importación parcial",
+          message: `Se importaron ${n} formulario(s), pero no se pudo completar la importación en la(s) fila(s) ${failedRows.join(", ")}. Revisá la vista previa y volvé a intentar con esas filas.`,
+        });
+      } else if (n === 0 && failedRows.length > 0) {
+        setImportResultModal({
+          variant: "error",
+          title: "No se pudo importar",
+          message: `No se guardó ningún formulario. Revisá las filas ${failedRows.join(", ")} en la vista previa.`,
+        });
+      } else {
+        setImportResultModal({
+          variant: "error",
+          title: "Sin registros importados",
+          message:
+            "No se importó ningún registro. Asegurate de tener al menos una fila marcada como válida (sin errores en rojo).",
+        });
       }
     } catch (e) {
-      setMessage(
-        e instanceof Error
-          ? e.message
-          : "No se pudo completar la importación.",
-      );
+      setImportResultModal({
+        variant: "error",
+        title: "Error al importar",
+        message:
+          e instanceof Error
+            ? e.message
+            : "No se pudo completar la importación. Intentá de nuevo.",
+      });
     } finally {
       setBusyImport(false);
     }
@@ -182,6 +207,15 @@ export const ImportarFormulariosPage = () => {
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
+      {importResultModal ? (
+        <ImportResultModal
+          open
+          variant={importResultModal.variant}
+          title={importResultModal.title}
+          message={importResultModal.message}
+          onClose={() => setImportResultModal(null)}
+        />
+      ) : null}
       <div className="mx-auto w-full max-w-3xl">
         <header className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-700">
@@ -280,7 +314,10 @@ export const ImportarFormulariosPage = () => {
                     size="sm"
                     className="border-slate-200"
                     disabled={busy || busyImport}
-                    onClick={() => resetPreview()}
+                    onClick={() => {
+                      setImportResultModal(null);
+                      resetPreview();
+                    }}
                   >
                     Quitar archivo
                   </Button>

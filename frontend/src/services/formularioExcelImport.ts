@@ -97,6 +97,34 @@ export function cellsToFormValuesRaw(cells: string[]): FormValues {
   return out;
 }
 
+/** Reconstruye las 76 celdas de fila a partir de valores editados en la vista previa. */
+export function formValuesToCells(displayValues: FormValues, idRaw: string): string[] {
+  const cells = new Array<string>(76).fill("");
+  for (let i = 0; i < MATRIZ_ROW_CELL_SOURCES.length; i++) {
+    const src = MATRIZ_ROW_CELL_SOURCES[i];
+    switch (src.kind) {
+      case "id_formulario":
+        cells[i] = idRaw;
+        break;
+      case "field":
+        cells[i] = displayValues[src.key] ?? "";
+        break;
+      case "fecha":
+        cells[i] = displayValues[src.key] ?? "";
+        break;
+      case "lon":
+        cells[i] = displayValues.longitud ?? "";
+        break;
+      case "lat":
+        cells[i] = displayValues.latitud ?? "";
+        break;
+      default:
+        break;
+    }
+  }
+  return cells;
+}
+
 function valueToImportString(raw: unknown): string {
   if (raw == null) {
     return "";
@@ -266,6 +294,19 @@ function rowToOfflineForm(
   }
 
   return { form };
+}
+
+/** Construye un `OfflineForm` desde celdas ya validadas (p. ej. tras editar la vista previa). */
+export function buildOfflineFormFromImportCells(
+  cells: string[],
+  idUsuario: string,
+  nowIso?: string,
+): { form?: OfflineForm; error?: string } {
+  return rowToOfflineForm(
+    cells,
+    idUsuario.trim(),
+    nowIso ?? new Date().toISOString(),
+  );
 }
 
 /** Valores para validar: igual que la fila en bruto, con fechas normalizadas a YYYY-MM-DD cuando el Excel es válido. */

@@ -3,9 +3,12 @@ import { Link } from "react-router-dom";
 
 import { ImportPreviewRowCard } from "@/components/import/ImportPreviewRowCard";
 import { Button } from "@/components/ui/button";
+import type { ImportPreviewRowPatch } from "@/components/import/ImportPreviewRowCard";
 import {
+  analyzeImportRow,
+  buildOfflineFormFromImportCells,
+  formValuesToCells,
   type ImportPreviewRow,
-  parsePlantillaWorkbook,
   previewPlantillaWorkbook,
 } from "@/services/formularioExcelImport";
 import { enqueueForm } from "@/services/sync";
@@ -84,7 +87,7 @@ export const ImportarFormulariosPage = () => {
           setMessage("No había filas de datos para previsualizar (desde la fila 8).");
         } else {
           setMessage(
-            `Vista previa de ${rows.length} fila(s). Revisá los campos en rojo, corregí el Excel y volvé a subir el archivo, o importá solo las filas válidas.`,
+            `Vista previa de ${rows.length} fila(s). Podés editar los campos aquí abajo; los errores se actualizan al escribir. También podés corregir el Excel y volver a subirlo.`,
           );
         }
       } catch (e) {
@@ -100,40 +103,72 @@ export const ImportarFormulariosPage = () => {
     [authUsername],
   );
 
+  const handlePreviewRowPatch = useCallback(
+    (sheetRow: number, patch: ImportPreviewRowPatch) => {
+      const idUsuario = toSafeUserId(authUsername ?? "");
+      setPreviewRows((prev) => {
+        if (!prev) {
+          return prev;
+        }
+        return prev.map((r) => {
+          if (r.sheetRow !== sheetRow) {
+            return r;
+          }
+          const idRaw = patch.idRaw ?? r.idRaw;
+          const displayValues = { ...r.displayValues, ...patch.displayValues };
+          const cells = formValuesToCells(displayValues, idRaw);
+          return analyzeImportRow(
+            cells,
+            sheetRow,
+            idUsuario,
+            new Date().toISOString(),
+          );
+        });
+      });
+    },
+    [authUsername],
+  );
+
   const onConfirmImport = useCallback(async () => {
-    if (!importBuffer) {
+    if (!previewRows || previewRows.length === 0) {
       return;
     }
     const idUsuario = toSafeUserId(authUsername ?? "");
     setBusyImport(true);
     setMessage(null);
     try {
-      const { ok, errors } = await parsePlantillaWorkbook(importBuffer, idUsuario);
       let n = 0;
-      for (const form of ok) {
-        await enqueueForm(form);
-        n += 1;
+      const failedRows: number[] = [];
+      for (const r of previewRows) {
+        if (!r.isValid) {
+          continue;
+        }
+        const cells = formValuesToCells(r.displayValues, r.idRaw);
+        const { form, error } = buildOfflineFormFromImportCells(
+          cells,
+          idUsuario,
+          new Date().toISOString(),
+        );
+        if (form) {
+          await enqueueForm(form);
+          n += 1;
+        } else if (error) {
+          failedRows.push(r.sheetRow);
+        }
       }
-      if (errors.length === 0 && n > 0) {
+      if (failedRows.length === 0 && n > 0) {
         setMessage(
           `Se importaron ${n} formulario(s) a la cola local. Podés sincronizar cuando tengas conexión.`,
         );
         resetPreview();
-      } else if (n > 0 && errors.length > 0) {
+      } else if (n > 0 && failedRows.length > 0) {
         setMessage(
-          `Se importaron ${n} formulario(s). ${errors.length} fila(s) no se importaron (revisá la vista previa y el Excel).`,
+          `Se importaron ${n} formulario(s). No se pudo completar la importación en la(s) fila(s) ${failedRows.join(", ")} (revisá la vista previa).`,
         );
-        const buffer = importBuffer;
-        const { rows, errors: prevErr } = await previewPlantillaWorkbook(
-          buffer,
-          idUsuario,
+      } else if (n === 0) {
+        setMessage(
+          "No se importó ningún registro. Asegurate de tener al menos una fila marcada como válida.",
         );
-        setPreviewRows(rows);
-        setPreviewErrors(prevErr);
-      } else if (n === 0 && errors.length > 0) {
-        setMessage("No se importó ningún registro. Revisá los errores en la vista previa.");
-      } else {
-        setMessage("No había filas válidas para importar.");
       }
     } catch (e) {
       setMessage(
@@ -144,7 +179,7 @@ export const ImportarFormulariosPage = () => {
     } finally {
       setBusyImport(false);
     }
-  }, [authUsername, importBuffer, resetPreview]);
+  }, [authUsername, previewRows, resetPreview]);
 
   const globalPreviewError =
     previewErrors.length > 0 ? previewErrors[0] : null;
@@ -256,9 +291,7 @@ export const ImportarFormulariosPage = () => {
                     type="button"
                     size="sm"
                     className="bg-teal-700 text-white hover:bg-teal-800"
-                    disabled={
-                      busy || busyImport || validCount === 0 || !importBuffer
-                    }
+                    disabled={busy || busyImport || validCount === 0}
                     onClick={() => void onConfirmImport()}
                   >
                     {busyImport
@@ -268,13 +301,18 @@ export const ImportarFormulariosPage = () => {
                 </div>
               </div>
               <p className="text-xs text-slate-500">
-                Los campos con borde rojo no cumplen formato o tipo de dato. Las
-                fechas deben ser interpretables (por ejemplo{" "}
-                <strong>15/03/2026</strong> o <strong>2026-03-15</strong>).
+                Podés editar cualquier campo en la vista previa. Los campos con
+                borde rojo no cumplen formato o tipo de dato. Las fechas deben ser
+                interpretables (por ejemplo <strong>15/03/2026</strong> o{" "}
+                <strong>2026-03-15</strong>).
               </p>
               <div className="max-h-[min(70vh,720px)] space-y-3 overflow-y-auto pr-1">
                 {previewRows.map((row) => (
-                  <ImportPreviewRowCard key={row.sheetRow} row={row} />
+                  <ImportPreviewRowCard
+                    key={row.sheetRow}
+                    row={row}
+                    onPatch={handlePreviewRowPatch}
+                  />
                 ))}
               </div>
             </div>

@@ -8,6 +8,8 @@ import {
 
 import {
   analyzeImportRow,
+  cellsToFormValuesRaw,
+  formValuesToCells,
   parseFechaCellForDatos,
   parsePlantillaWorkbook,
   previewPlantillaWorkbook,
@@ -39,6 +41,21 @@ describe("parseFechaCellForDatos", () => {
 
   it("deja prefijo ISO", () => {
     expect(parseFechaCellForDatos("2026-05-01T12:00:00Z")).toBe("2026-05-01");
+  });
+});
+
+describe("formValuesToCells", () => {
+  it("revierte cellsToFormValuesRaw usando el ID de la columna A", () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[0] = "";
+    row[4] = "01/01/2026";
+    row[7] = "Benef";
+    row[29] = "-74.1";
+    row[33] = "4.1";
+    const cells = row.map((v) => (v == null ? "" : String(v)));
+    const values = cellsToFormValuesRaw(cells);
+    const back = formValuesToCells(values, cells[0] ?? "");
+    expect(back).toEqual(cells);
   });
 });
 

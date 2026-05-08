@@ -1,19 +1,26 @@
 import { FORM_SECTIONS } from "@/config/formSections";
 import { fieldLabel, inputKindForField } from "@/config/formFieldMeta";
 import type { ImportPreviewRow } from "@/services/formularioExcelImport";
-import type { FormFieldKey } from "@/types/formFields";
+import type { FormFieldKey, FormValues } from "@/types/formFields";
 
 const inputBase =
-  "mt-1 w-full min-w-0 rounded-xl border bg-slate-50/80 px-3 py-2 text-sm text-slate-900 shadow-sm [overflow-wrap:anywhere] focus-visible:outline-none";
+  "mt-1 w-full min-w-0 rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600";
 
 type PreviewFieldProps = {
   label: string;
   value: string;
   error?: string;
   multiline?: boolean;
+  onChange: (value: string) => void;
 };
 
-const PreviewField = ({ label, value, error, multiline }: PreviewFieldProps) => {
+const PreviewField = ({
+  label,
+  value,
+  error,
+  multiline,
+  onChange,
+}: PreviewFieldProps) => {
   const invalid = Boolean(error);
   const ring = invalid
     ? "border-red-600 ring-1 ring-red-500/40"
@@ -24,13 +31,17 @@ const PreviewField = ({ label, value, error, multiline }: PreviewFieldProps) => 
       {label}
       {multiline ? (
         <textarea
-          readOnly
           rows={3}
           className={`${inputBase} ${ring}`}
           value={value}
+          onChange={(e) => onChange(e.target.value)}
         />
       ) : (
-        <input readOnly className={`${inputBase} ${ring}`} value={value} />
+        <input
+          className={`${inputBase} ${ring}`}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        />
       )}
       {error ? (
         <span className="mt-1 text-xs font-normal text-red-600">{error}</span>
@@ -41,7 +52,18 @@ const PreviewField = ({ label, value, error, multiline }: PreviewFieldProps) => 
 
 const ID_FIELD_LABEL = "ID (columna A)";
 
-export const ImportPreviewRowCard = ({ row }: { row: ImportPreviewRow }) => {
+export type ImportPreviewRowPatch = {
+  idRaw?: string;
+  displayValues?: Partial<FormValues>;
+};
+
+export const ImportPreviewRowCard = ({
+  row,
+  onPatch,
+}: {
+  row: ImportPreviewRow;
+  onPatch: (sheetRow: number, patch: ImportPreviewRowPatch) => void;
+}) => {
   const { displayValues, fieldErrors, rowMessages, sheetRow, idRaw, isValid } =
     row;
 
@@ -83,6 +105,7 @@ export const ImportPreviewRowCard = ({ row }: { row: ImportPreviewRow }) => {
                 label={ID_FIELD_LABEL}
                 value={idRaw}
                 error={fieldErrors.id_formulario}
+                onChange={(v) => onPatch(sheetRow, { idRaw: v })}
               />
             </div>
           </section>
@@ -113,6 +136,9 @@ export const ImportPreviewRowCard = ({ row }: { row: ImportPreviewRow }) => {
                       value={displayValues[fk] ?? ""}
                       error={err}
                       multiline={multiline}
+                      onChange={(v) =>
+                        onPatch(sheetRow, { displayValues: { [fk]: v } })
+                      }
                     />
                   );
                 })}

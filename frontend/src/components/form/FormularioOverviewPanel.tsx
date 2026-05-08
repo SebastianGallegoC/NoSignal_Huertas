@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 
 type Props = {
   estado: "idle" | "buscando" | "ok" | "error";
@@ -26,6 +27,7 @@ export const FormularioOverviewPanel = ({
   buildExternalMapUrl,
 }: Props) => {
   const isGps = modoCoordenadas === "automatico";
+  const isOnline = useConnectivityStatus();
 
   return (
     <section className="rounded-2xl border border-teal-100 bg-white/80 p-4 shadow-[0_18px_40px_-35px_rgba(15,118,110,0.6)] sm:p-5">
@@ -109,7 +111,7 @@ export const FormularioOverviewPanel = ({
       {isGps && gps ? (
         <div className="mt-4 overflow-hidden rounded-xl border border-teal-100 bg-slate-50">
           <div className="h-48 overflow-hidden sm:h-56">
-            {typeof navigator !== "undefined" && navigator.onLine ? (
+            {isOnline ? (
               <iframe
                 title="Mapa de ubicación capturada"
                 className="h-[calc(100%+36px)] w-full"
@@ -151,20 +153,20 @@ export const FormularioOverviewPanel = ({
             Precisión: {gps.precision.toFixed(1)} m
           </div>
           <a
-            className={`block px-3 pb-3 text-xs font-medium ${navigator.onLine ? "text-teal-800 underline" : "text-slate-400"}`}
+            className={`block px-3 pb-3 text-xs font-medium ${isOnline ? "text-teal-800 underline" : "text-slate-400"}`}
             href={
-              navigator.onLine
+              isOnline
                 ? buildExternalMapUrl(gps.latitud, gps.longitud)
                 : undefined
             }
             target="_blank"
             rel="noreferrer"
-            aria-disabled={!navigator.onLine}
+            aria-disabled={!isOnline}
             onClick={(e) => {
-              if (!navigator.onLine) e.preventDefault();
+              if (!isOnline) e.preventDefault();
             }}
           >
-            {navigator.onLine
+            {isOnline
               ? "Abrir ubicación en OpenStreetMap"
               : "Abrir ubicación (requiere conexión)"}
           </a>

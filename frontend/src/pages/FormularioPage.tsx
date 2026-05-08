@@ -17,6 +17,7 @@ import { FormFieldRow } from "@/components/form/FormFieldRow";
 import { Button } from "@/components/ui/button";
 import { FORM_SECTIONS } from "@/config/formSections";
 import { USUARIOS_FORMULARIO } from "@/config/usuariosFormulario";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import { useGPS } from "@/hooks/useGPS";
 import { useCameraCapture } from "@/hooks/useCameraCapture";
 import { useFormularioSubmit } from "@/hooks/useFormularioSubmit";
@@ -63,6 +64,7 @@ const toSafeUserId = (raw: string): string => {
 
 export const FormularioPage = () => {
   const authUsername = useAuthStore((s) => s.username);
+  const isOnline = useConnectivityStatus();
   const draftUserKey = authUsername ?? "";
 
   const loadedDraft = useMemo(
@@ -573,7 +575,7 @@ export const FormularioPage = () => {
             <h1 className="text-3xl font-semibold">Formulario de visita</h1>
             <p className="text-sm text-slate-600">
               Sesión: {authUsername ?? "—"} · Red:{" "}
-              {navigator.onLine ? "online" : "offline"}
+              {isOnline ? "online" : "offline"}
             </p>
           </div>
           <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:gap-6">

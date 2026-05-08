@@ -52,6 +52,7 @@ import {
   loadHiddenFormIds,
 } from "@/services/formLocalDelete";
 import { isNetworkLikeError } from "@/services/sync";
+import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import {
   buildFormValuesFromSnapshot,
   getBeneficiarioDisplayName,
@@ -169,6 +170,7 @@ function previewDetailSourceForRow(
 
 export const FormulariosDiligenciadosPage = () => {
   const authUsername = useAuthStore((s) => s.username);
+  const online = useConnectivityStatus();
   const navigate = useNavigate();
   const [rows, setRows] = useState<DisplayRow[]>([]);
   const [filtroDesde, setFiltroDesde] = useState("");
@@ -210,9 +212,6 @@ export const FormulariosDiligenciadosPage = () => {
   const [descargandoTodasFotos, setDescargandoTodasFotos] = useState(false);
   const [eliminandoId, setEliminandoId] = useState<string | null>(null);
   const [eliminarError, setEliminarError] = useState<string | null>(null);
-  const [online, setOnline] = useState(
-    () => typeof navigator !== "undefined" && navigator.onLine,
-  );
   const [pendingDeleteRow, setPendingDeleteRow] = useState<DisplayRow | null>(
     null,
   );
@@ -283,9 +282,7 @@ export const FormulariosDiligenciadosPage = () => {
       typeof localStorage !== "undefined" &&
       !!localStorage.getItem(ACCESS_TOKEN_KEY);
 
-    // Solo intenta fetch al servidor si está online.
-    const isOnline = typeof navigator !== "undefined" && navigator.onLine;
-    if (hasToken && isOnline) {
+    if (hasToken && online) {
       try {
         server = await listFormsFromApi();
       } catch (e) {
@@ -297,8 +294,7 @@ export const FormulariosDiligenciadosPage = () => {
           err = errMsg;
         }
       }
-    } else if (hasToken && !isOnline) {
-      // Offline con token: muestra estado pero no error crítico.
+    } else if (hasToken && !online) {
       err = "Modo sin conexión - mostrando datos locales";
     }
 
@@ -343,28 +339,12 @@ export const FormulariosDiligenciadosPage = () => {
     setRemoteLoaded(hasToken);
     setPrecargas(precargaForMerge);
     return visible;
-  }, []);
+  }, [online]);
 
   useEffect(() => {
     void loadList().catch((err) => {
       console.debug("Offline: loadList error ignored", err);
     });
-  }, [loadList]);
-
-  useEffect(() => {
-    const onOnline = () => {
-      setOnline(true);
-      void loadList().catch((err) => {
-        console.debug("Offline: loadList error on reconnect ignored", err);
-      });
-    };
-    const onOffline = () => setOnline(false);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    return () => {
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-    };
   }, [loadList]);
 
   useEffect(() => {

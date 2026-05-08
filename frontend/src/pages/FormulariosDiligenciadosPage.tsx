@@ -658,7 +658,9 @@ export const FormulariosDiligenciadosPage = () => {
         await eliminarCopiaLocalFormulario(row.id_formulario);
         const visible = await loadList();
         if (selectedId === row.id_formulario) {
-          const fresh = visible.find((r) => r.id_formulario === row.id_formulario);
+          const fresh = visible.find(
+            (r) => r.id_formulario === row.id_formulario,
+          );
           if (fresh) {
             await selectRow(fresh, { refreshOnly: true });
           } else {
@@ -678,13 +680,7 @@ export const FormulariosDiligenciadosPage = () => {
         setEliminandoPrecargaId(null);
       }
     },
-    [
-      eliminandoPrecargaId,
-      loadList,
-      precargaMap,
-      selectRow,
-      selectedId,
-    ],
+    [eliminandoPrecargaId, loadList, precargaMap, selectRow, selectedId],
   );
 
   const confirmarEliminarTodasPrecargas = useCallback(async () => {
@@ -1257,9 +1253,7 @@ export const FormulariosDiligenciadosPage = () => {
                 eliminandoTodasPrecargas ||
                 eliminandoPrecargaId !== null
               }
-              title={
-                !online ? "Requiere conexión a internet" : undefined
-              }
+              title={!online ? "Requiere conexión a internet" : undefined}
               className="w-full border-amber-200 text-amber-950 hover:bg-amber-50 sm:w-auto"
             >
               {eliminandoTodasPrecargas
@@ -1607,7 +1601,8 @@ export const FormulariosDiligenciadosPage = () => {
                                       }
                                       className="shrink-0 border-rose-200 text-rose-800 hover:bg-rose-50"
                                     >
-                                      {eliminandoPrecargaId === row.id_formulario
+                                      {eliminandoPrecargaId ===
+                                      row.id_formulario
                                         ? "Eliminando…"
                                         : precargaMap.has(row.id_formulario)
                                           ? "Eliminar precarga"

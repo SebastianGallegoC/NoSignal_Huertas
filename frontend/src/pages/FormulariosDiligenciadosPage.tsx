@@ -51,6 +51,7 @@ import {
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
 } from "@/services/formLocalDelete";
+import { isNetworkLikeError } from "@/services/sync";
 import {
   buildFormValuesFromSnapshot,
   getBeneficiarioDisplayName,
@@ -290,11 +291,7 @@ export const FormulariosDiligenciadosPage = () => {
       } catch (e) {
         const errMsg =
           e instanceof Error ? e.message : "Error al cargar desde el servidor";
-        // Detecta errores de red y proporciona mensaje mejorado.
-        if (
-          errMsg.includes("ERR_NAME_NOT_RESOLVED") ||
-          errMsg.includes("Failed to fetch")
-        ) {
+        if (isNetworkLikeError(errMsg)) {
           err = "Sin conexión a internet - mostrando datos locales";
         } else {
           err = errMsg;

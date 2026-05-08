@@ -23,6 +23,7 @@ export const isNetworkLikeError = (error: unknown): boolean => {
     message.includes('net::err_name_not_resolved') ||
     message.includes('net::err_failed') ||
     message.includes('load failed') ||
+    message.includes('offline') ||
     message.includes('the internet connection appears to be offline')
   );
 };

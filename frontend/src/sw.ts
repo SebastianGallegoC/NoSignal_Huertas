@@ -1,10 +1,9 @@
 /// <reference lib="webworker" />
 
-import { BackgroundSyncPlugin } from 'workbox-background-sync';
 import { clientsClaim } from 'workbox-core';
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from 'workbox-precaching';
 import { NavigationRoute, registerRoute } from 'workbox-routing';
-import { CacheFirst, NetworkFirst, NetworkOnly } from 'workbox-strategies';
+import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 import { ExpirationPlugin } from 'workbox-expiration';
 import { CacheableResponsePlugin } from 'workbox-cacheable-response';
 
@@ -37,15 +36,45 @@ self.addEventListener('message', (event) => {
 const navigationHandler = createHandlerBoundToURL('/index.html');
 registerRoute(new NavigationRoute(navigationHandler));
 
-const syncQueue = new BackgroundSyncPlugin('nosignal-queue', {
-  maxRetentionTime: 3 * 24 * 60,
-});
+const apiCacheName = 'nosignal-api-v1';
+
+registerRoute(
+  ({ url, request }) => url.pathname.startsWith('/api/v1/forms') && request.method === 'GET',
+  async ({ request }) => {
+    try {
+      const response = await fetch(request);
+      if (response.ok) {
+        const cache = await caches.open(apiCacheName);
+        await cache.put(request, response.clone());
+      }
+      return response;
+    } catch {
+      const cache = await caches.open(apiCacheName);
+      const cached = await cache.match(request);
+      if (cached) {
+        return cached;
+      }
+
+      return new Response(JSON.stringify({ detail: 'offline' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      });
+    }
+  },
+);
 
 registerRoute(
   ({ url, request }) => url.pathname.startsWith('/api/v1/forms') && request.method === 'POST',
-  new NetworkOnly({
-    plugins: [syncQueue],
-  }),
+  async ({ request }) => {
+    try {
+      return await fetch(request);
+    } catch {
+      return new Response(JSON.stringify({ detail: 'offline' }), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      });
+    }
+  },
   'POST',
 );
 

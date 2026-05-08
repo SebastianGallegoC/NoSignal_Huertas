@@ -1736,7 +1736,7 @@ export const FormulariosDiligenciadosPage = () => {
               {precargas.length === 1 ? "" : "s"} guardada
               {precargas.length === 1 ? "" : "s"} en este dispositivo para uso
               sin conexión. El historial local y los datos en servidor no se
-              modifican. Esta acción no se puede deshacer.
+              modifican.
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               <Button

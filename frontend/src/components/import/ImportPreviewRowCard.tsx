@@ -1,7 +1,19 @@
 import { FORM_SECTIONS } from "@/config/formSections";
-import { fieldLabel, inputKindForField } from "@/config/formFieldMeta";
+import { fieldSelectOptions } from "@/config/formSelectOptions";
+import { fieldLabel, inputKindForField, triOptions } from "@/config/formFieldMeta";
+import {
+  SearchableSelectControlled,
+  type SelectOption,
+} from "@/components/form/SearchableSelect";
 import type { ImportPreviewRow } from "@/services/formularioExcelImport";
 import type { FormFieldKey, FormValues } from "@/types/formFields";
+
+const SELECT_FALLBACK: SelectOption[] = [{ value: "", label: "" }];
+
+const TRIO_OPTIONS_LIST: SelectOption[] = triOptions.map((o) => ({
+  value: o.value,
+  label: o.label,
+}));
 
 const inputBase =
   "mt-1 w-full min-w-0 rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 shadow-sm [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600";
@@ -129,6 +141,38 @@ export const ImportPreviewRowCard = ({
                       : fk === "latitud"
                         ? fieldErrors.latitud
                         : fieldErrors[fk];
+                  if (kind === "select-tri") {
+                    return (
+                      <SearchableSelectControlled
+                        key={field}
+                        id={`import-r${sheetRow}-${fk}`}
+                        label={fieldLabel(fk)}
+                        options={TRIO_OPTIONS_LIST}
+                        value={displayValues[fk] ?? ""}
+                        error={err}
+                        onChange={(v) =>
+                          onPatch(sheetRow, { displayValues: { [fk]: v } })
+                        }
+                      />
+                    );
+                  }
+                  if (kind === "select") {
+                    const options =
+                      fieldSelectOptions[fk] ?? SELECT_FALLBACK;
+                    return (
+                      <SearchableSelectControlled
+                        key={field}
+                        id={`import-r${sheetRow}-${fk}`}
+                        label={fieldLabel(fk)}
+                        options={options}
+                        value={displayValues[fk] ?? ""}
+                        error={err}
+                        onChange={(v) =>
+                          onPatch(sheetRow, { displayValues: { [fk]: v } })
+                        }
+                      />
+                    );
+                  }
                   return (
                     <PreviewField
                       key={field}

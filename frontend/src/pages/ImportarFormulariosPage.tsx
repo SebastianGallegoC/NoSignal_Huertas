@@ -302,7 +302,7 @@ export const ImportarFormulariosPage = () => {
                 interpretables (por ejemplo <strong>15/03/2026</strong> o{" "}
                 <strong>2026-03-15</strong>).
               </p>
-              <div className="max-h-[min(70vh,720px)] space-y-3 overflow-y-auto pr-1">
+              <div className="space-y-3 pr-1">
                 {previewRows.map((row) => (
                   <ImportPreviewRowCard
                     key={row.sheetRow}

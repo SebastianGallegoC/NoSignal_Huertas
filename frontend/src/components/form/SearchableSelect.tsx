@@ -1,5 +1,5 @@
-import { useEffect, useId, useMemo, useState } from 'react';
-import type { Control, ControllerRenderProps } from 'react-hook-form';
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from 'react';
+import type { Control } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 
 import type { FormFieldKey, FormValues } from '@/types/formFields';
@@ -10,6 +10,8 @@ const inputClass =
   'mt-1 w-full min-w-0 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm [overflow-wrap:anywhere] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600';
 
 const inputWithChevronClass = `${inputClass} pr-9 appearance-none`;
+
+const inputErrorClass = 'border-red-600 ring-1 ring-red-500/40';
 
 function normalize(s: string): string {
   return s
@@ -50,17 +52,34 @@ function filterOptions(options: SelectOption[], text: string): SelectOption[] {
   );
 }
 
+type SelectBinding = {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: () => void;
+  name: string;
+  inputRef: Ref<HTMLInputElement>;
+};
+
 type InnerProps = {
-  field: ControllerRenderProps<FormValues, FormFieldKey>;
+  binding: SelectBinding;
   options: SelectOption[];
   label: string;
   listId: string;
   error?: string;
+  /** Borde rojo (validación) */
+  invalid?: boolean;
 };
 
-const SearchableSelectInner = ({ field, options, label, listId, error }: InnerProps) => {
+const SearchableSelectInner = ({
+  binding,
+  options,
+  label,
+  listId,
+  error,
+  invalid,
+}: InnerProps) => {
   const [open, setOpen] = useState(false);
-  const fieldValue = String(field.value ?? '');
+  const fieldValue = String(binding.value ?? '');
   const [text, setText] = useState(() => labelForValue(fieldValue, options));
 
   useEffect(() => {
@@ -72,26 +91,28 @@ const SearchableSelectInner = ({ field, options, label, listId, error }: InnerPr
   const commitOrRevert = () => {
     const resolved = resolveOption(text, options);
     if (resolved) {
-      field.onChange(resolved.value);
+      binding.onChange(resolved.value);
       setText(labelForValue(resolved.value, options));
     } else {
       setText(labelForValue(fieldValue, options));
     }
   };
 
+  const inputRing = invalid || error ? inputErrorClass : '';
+
   return (
-    <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800">
+    <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800 md:col-span-2">
       {label}
-      <div className="relative mt-1">
+      <div className="relative z-20 mt-1">
         <input
-          ref={field.ref}
-          name={field.name}
+          ref={binding.inputRef}
+          name={binding.name}
           autoComplete="off"
           role="combobox"
           aria-expanded={open}
           aria-controls={listId}
           aria-autocomplete="list"
-          className={inputWithChevronClass}
+          className={`${inputWithChevronClass} ${inputRing}`.trim()}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -99,7 +120,7 @@ const SearchableSelectInner = ({ field, options, label, listId, error }: InnerPr
           }}
           onFocus={() => setOpen(true)}
           onBlur={() => {
-            field.onBlur();
+            binding.onBlur();
             setOpen(false);
             commitOrRevert();
           }}
@@ -112,7 +133,7 @@ const SearchableSelectInner = ({ field, options, label, listId, error }: InnerPr
             if (e.key === 'Enter' && open && filtered.length === 1) {
               e.preventDefault();
               const only = filtered[0];
-              field.onChange(only.value);
+              binding.onChange(only.value);
               setText(labelForValue(only.value, options));
               setOpen(false);
             }
@@ -131,17 +152,17 @@ const SearchableSelectInner = ({ field, options, label, listId, error }: InnerPr
           <ul
             id={listId}
             role="listbox"
-            className="absolute z-30 mt-1 max-h-52 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
+            className="absolute z-[100] mt-1 max-h-52 w-full overflow-auto rounded-xl border border-slate-200 bg-white py-1 shadow-lg"
           >
             {filtered.map((o) => (
               <li
                 key={o.value === '' ? '__empty__' : o.value}
                 role="option"
-                aria-selected={field.value === o.value}
+                aria-selected={binding.value === o.value}
                 className="cursor-pointer px-3 py-2 text-sm text-slate-800 hover:bg-teal-50"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  field.onChange(o.value);
+                  binding.onChange(o.value);
                   setText(labelForValue(o.value, options));
                   setOpen(false);
                 }}
@@ -184,8 +205,61 @@ export const SearchableSelect = ({ name, control, options, error, label }: Searc
         },
       }}
       render={({ field }) => (
-        <SearchableSelectInner field={field} options={options} label={label} listId={listId} error={error} />
+        <SearchableSelectInner
+          binding={{
+            value: String(field.value ?? ''),
+            onChange: field.onChange,
+            onBlur: field.onBlur,
+            name: field.name,
+            inputRef: field.ref,
+          }}
+          options={options}
+          label={label}
+          listId={listId}
+          error={error}
+        />
       )}
+    />
+  );
+};
+
+export type SearchableSelectControlledProps = {
+  value: string;
+  onChange: (value: string) => void;
+  options: SelectOption[];
+  label: string;
+  error?: string;
+  /** id estable para accesibilidad (opcional) */
+  id?: string;
+};
+
+/** Mismo combobox que el formulario, sin react-hook-form (p. ej. importación Excel). */
+export const SearchableSelectControlled = ({
+  value,
+  onChange,
+  options,
+  label,
+  error,
+  id: idProp,
+}: SearchableSelectControlledProps) => {
+  const genId = useId();
+  const listId = idProp ? `${idProp}-list` : genId;
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <SearchableSelectInner
+      binding={{
+        value: String(value ?? ''),
+        onChange,
+        onBlur: () => {},
+        name: idProp ?? 'import-select',
+        inputRef,
+      }}
+      options={options}
+      label={label}
+      listId={listId}
+      error={error}
+      invalid={Boolean(error)}
     />
   );
 };

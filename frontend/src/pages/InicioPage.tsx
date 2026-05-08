@@ -60,7 +60,8 @@ export const InicioPage = () => {
                 </span>
               </div>
               <p className="mt-3 text-sm text-slate-600">
-                Formularios guardados en este equipo y pendientes por sincronizar.
+                Formularios guardados en este equipo y pendientes por
+                sincronizar.
               </p>
             </div>
             <div className="rounded-2xl border border-rose-200/80 bg-white/95 p-4 shadow-sm ring-1 ring-rose-100/60 sm:p-5">
@@ -83,7 +84,7 @@ export const InicioPage = () => {
             </div>
           </section>
           <h1 className="mt-2 text-3xl font-semibold">
-            Selecciona una opción V.1
+            Selecciona una opción V.1.1
           </h1>
           <p className="mt-2 text-sm text-slate-600">
             Puedes diligenciar un nuevo formulario o revisar los ya registrados.

@@ -1,4 +1,4 @@
-import { inputKindForField } from "@/config/formFieldMeta";
+import { fieldLabel, inputKindForField } from "@/config/formFieldMeta";
 import type { OfflineForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormFieldKey, type FormValues } from "@/types/formFields";
 
@@ -13,6 +13,21 @@ export interface ValidationIssue {
   message: string;
 }
 
+/** Mensaje unificado para fechas en Excel/importación y validación de valores. */
+export const FECHA_FORMATO_MSG =
+  "Fecha no válida. Ejemplos: 15/03/2026 (día/mes/año) o 2026-03-15.";
+
+export type FormValueFieldIssue = {
+  field: FormFieldKey;
+  code: string;
+  message: string;
+};
+
+export type FormValueRowIssue = {
+  code: string;
+  message: string;
+};
+
 function isBlank(value: unknown): boolean {
   return value == null || String(value).trim() === "";
 }
@@ -26,40 +41,95 @@ function parseDateSafe(value: unknown): number | null {
 }
 
 /**
- * Validación de contenido del cuestionario cuando hay datos ingresados.
+ * Validación por campo (y mensajes de fila) para mostrar errores en UI de importación.
  * No exige completar el formulario: el envío offline solo exige GPS (y fotos
  * dentro de rango) vía `validateOfflineFormPayload`; el API acepta
  * `datos_formulario` parcial o vacío.
  */
-export const validateFormValues = (values: FormValues): ValidationIssue[] => {
-  const issues: ValidationIssue[] = [];
+export const validateFormValuesWithFieldDetails = (
+  values: FormValues,
+): { fieldIssues: FormValueFieldIssue[]; rowIssues: FormValueRowIssue[] } => {
+  const fieldIssues: FormValueFieldIssue[] = [];
+  const rowIssues: FormValueRowIssue[] = [];
 
   if (!isBlank(values.edad)) {
     const edad = Number(values.edad);
     if (!Number.isFinite(edad) || edad < 0 || edad > 120) {
-      issues.push({ code: "edad_range", message: "Edad fuera de rango (0-120)." });
+      fieldIssues.push({
+        field: "edad",
+        code: "edad_range",
+        message: "Edad fuera de rango (0-120).",
+      });
     }
   }
 
   if (!isBlank(values.telefono) && !PHONE_RE.test(values.telefono.trim())) {
-    issues.push({ code: "telefono_format", message: "Formato de teléfono inválido." });
+    fieldIssues.push({
+      field: "telefono",
+      code: "telefono_format",
+      message: "Formato de teléfono inválido (6-20 caracteres: dígitos, +, -, espacios, paréntesis).",
+    });
   }
 
   if (!isBlank(values.satisfaccion_1_5)) {
     const score = Number(values.satisfaccion_1_5);
     if (!Number.isFinite(score) || score < 1 || score > 5) {
-      issues.push({ code: "satisfaccion_range", message: "Satisfacción debe estar entre 1 y 5." });
+      fieldIssues.push({
+        field: "satisfaccion_1_5",
+        code: "satisfaccion_range",
+        message: "Satisfacción debe ser un entero entre 1 y 5.",
+      });
     }
   }
 
   for (const key of REQUIRED_FIELDS) {
-    if (inputKindForField(key as FormFieldKey) === "select-tri" && !isBlank(values[key])) {
-      if (!TRI_ALLOWED.has(String(values[key]).trim())) {
-        issues.push({
-          code: `tri_${key}`,
-          message: `Respuesta inválida en ${key}. Debe ser Si/No/NR.`,
+    const fk = key as FormFieldKey;
+    if (
+      inputKindForField(fk) === "number" &&
+      fk !== "edad" &&
+      fk !== "satisfaccion_1_5" &&
+      !isBlank(values[key])
+    ) {
+      const raw = String(values[key]).replace(/\s/g, "").replace(",", ".");
+      if (raw === "" || !Number.isFinite(Number(raw))) {
+        fieldIssues.push({
+          field: fk,
+          code: "number_invalid",
+          message: `«${fieldLabel(fk)}» debe ser un número válido (podés usar punto o coma decimal).`,
         });
       }
+    }
+    if (inputKindForField(fk) === "select-tri" && !isBlank(values[key])) {
+      if (!TRI_ALLOWED.has(String(values[key]).trim())) {
+        fieldIssues.push({
+          field: fk,
+          code: `tri_${key}`,
+          message: `En «${fieldLabel(fk)}» usá exactamente: Si, No o NR.`,
+        });
+      }
+    }
+  }
+
+  for (const key of ["fecha_inicio", "fecha_fin"] as const) {
+    if (!isBlank(values[key]) && parseDateSafe(values[key]) == null) {
+      fieldIssues.push({
+        field: key,
+        code: "fecha_invalid",
+        message: FECHA_FORMATO_MSG,
+      });
+    }
+  }
+
+  const visitaKeys = ["fecha_visita_1", "fecha_visita_2", "fecha_visita_3"] as const;
+  let visitaParseOk = true;
+  for (const key of visitaKeys) {
+    if (!isBlank(values[key]) && parseDateSafe(values[key]) == null) {
+      visitaParseOk = false;
+      fieldIssues.push({
+        field: key,
+        code: "fecha_invalid",
+        message: FECHA_FORMATO_MSG,
+      });
     }
   }
 
@@ -67,22 +137,25 @@ export const validateFormValues = (values: FormValues): ValidationIssue[] => {
   const f2 = parseDateSafe(values.fecha_visita_2);
   const f3 = parseDateSafe(values.fecha_visita_3);
   if (
-    (!isBlank(values.fecha_visita_1) && f1 == null) ||
-    (!isBlank(values.fecha_visita_2) && f2 == null) ||
-    (!isBlank(values.fecha_visita_3) && f3 == null)
+    visitaParseOk &&
+    ((f1 != null && f2 != null && f1 > f2) || (f2 != null && f3 != null && f2 > f3))
   ) {
-    issues.push({
-      code: "fechas_visita_invalid",
-      message: "Las fechas de visita deben tener formato válido.",
-    });
-  } else if ((f1 != null && f2 != null && f1 > f2) || (f2 != null && f3 != null && f2 > f3)) {
-    issues.push({
+    rowIssues.push({
       code: "fechas_visita_order",
-      message: "Las fechas deben estar en orden: visita 1 <= visita 2 <= visita 3.",
+      message:
+        "Las fechas de visita deben estar en orden cronológico: visita 1 ≤ visita 2 ≤ visita 3.",
     });
   }
 
-  return issues;
+  return { fieldIssues, rowIssues };
+};
+
+export const validateFormValues = (values: FormValues): ValidationIssue[] => {
+  const { fieldIssues, rowIssues } = validateFormValuesWithFieldDetails(values);
+  return [
+    ...fieldIssues.map((i) => ({ code: i.code, message: i.message })),
+    ...rowIssues.map((i) => ({ code: i.code, message: i.message })),
+  ];
 };
 
 const toFormValuesFromPayload = (payload: OfflineForm): FormValues => {

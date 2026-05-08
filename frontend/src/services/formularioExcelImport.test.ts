@@ -7,8 +7,10 @@ import {
 } from "@/services/matrizCaracterizacionExport";
 
 import {
+  analyzeImportRow,
   parseFechaCellForDatos,
   parsePlantillaWorkbook,
+  previewPlantillaWorkbook,
 } from "./formularioExcelImport";
 
 async function buildMinimalPlantillaBuffer(
@@ -120,5 +122,30 @@ describe("parsePlantillaWorkbook", () => {
     const { ok, errors } = await parsePlantillaWorkbook(buffer, "  ");
     expect(ok).toHaveLength(0);
     expect(errors[0].row).toBe(0);
+  });
+
+  it("analyzeImportRow marca fecha inválida y coordenadas válidas", () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[4] = "no-es-una-fecha";
+    row[7] = "Ana";
+    row[29] = "-74.0";
+    row[33] = "4.0";
+    const cells = row.map((v) => (v == null ? "" : String(v)));
+    const preview = analyzeImportRow(cells, 8, "u1", new Date().toISOString());
+    expect(preview.isValid).toBe(false);
+    expect(preview.fieldErrors.fecha_inicio).toBeDefined();
+  });
+
+  it("previewPlantillaWorkbook devuelve una fila por datos", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Luis";
+    row[29] = "-74.05";
+    row[33] = "4.05";
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { rows, errors } = await previewPlantillaWorkbook(buffer, "u2");
+    expect(errors).toHaveLength(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].sheetRow).toBe(8);
+    expect(rows[0].isValid).toBe(true);
   });
 });

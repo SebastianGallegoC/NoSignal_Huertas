@@ -1,8 +1,13 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { ImportPreviewRowCard } from "@/components/import/ImportPreviewRowCard";
 import { Button } from "@/components/ui/button";
-import { parsePlantillaWorkbook } from "@/services/formularioExcelImport";
+import {
+  type ImportPreviewRow,
+  parsePlantillaWorkbook,
+  previewPlantillaWorkbook,
+} from "@/services/formularioExcelImport";
 import { enqueueForm } from "@/services/sync";
 import { useAuthStore } from "@/store/useAuthStore";
 
@@ -22,15 +27,41 @@ const toSafeUserId = (raw: string): string => {
 export const ImportarFormulariosPage = () => {
   const authUsername = useAuthStore((s) => s.username);
   const [busy, setBusy] = useState(false);
+  const [busyImport, setBusyImport] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [rowErrors, setRowErrors] = useState<{ row: number; message: string }[]>(
-    [],
+  const [importBuffer, setImportBuffer] = useState<ArrayBuffer | null>(null);
+  const [fileLabel, setFileLabel] = useState<string | null>(null);
+  const [previewErrors, setPreviewErrors] = useState<
+    { row: number; message: string }[]
+  >([]);
+  const [previewRows, setPreviewRows] = useState<ImportPreviewRow[] | null>(
+    null,
   );
+
+  const validCount = useMemo(
+    () => previewRows?.filter((r) => r.isValid).length ?? 0,
+    [previewRows],
+  );
+  const invalidCount = useMemo(
+    () => previewRows?.filter((r) => !r.isValid).length ?? 0,
+    [previewRows],
+  );
+
+  const resetPreview = useCallback(() => {
+    setImportBuffer(null);
+    setFileLabel(null);
+    setPreviewRows(null);
+    setPreviewErrors([]);
+    setMessage(null);
+  }, []);
 
   const onFile = useCallback(
     async (file: File | null) => {
       setMessage(null);
-      setRowErrors([]);
+      setPreviewRows(null);
+      setPreviewErrors([]);
+      setImportBuffer(null);
+      setFileLabel(null);
       if (!file) {
         return;
       }
@@ -42,29 +73,25 @@ export const ImportarFormulariosPage = () => {
       setBusy(true);
       try {
         const buffer = await file.arrayBuffer();
-        const { ok, errors } = await parsePlantillaWorkbook(buffer, idUsuario);
-        setRowErrors(errors);
-        let n = 0;
-        for (const form of ok) {
-          await enqueueForm(form);
-          n += 1;
-        }
-        if (errors.length === 0 && n > 0) {
-          setMessage(`Se importaron ${n} formulario(s) a la cola local. Podés sincronizar cuando tengas conexión.`);
-        } else if (n > 0 && errors.length > 0) {
-          setMessage(
-            `Se importaron ${n} formulario(s). Hubo ${errors.length} fila(s) con error (ver abajo).`,
-          );
-        } else if (n === 0 && errors.length > 0) {
-          setMessage("No se importó ningún registro. Revisá los errores abajo.");
+        const { rows, errors } = await previewPlantillaWorkbook(buffer, idUsuario);
+        setImportBuffer(buffer);
+        setFileLabel(file.name);
+        setPreviewErrors(errors);
+        setPreviewRows(rows);
+        if (errors.length > 0) {
+          setMessage(null);
+        } else if (rows.length === 0) {
+          setMessage("No había filas de datos para previsualizar (desde la fila 8).");
         } else {
-          setMessage("No había filas de datos para importar.");
+          setMessage(
+            `Vista previa de ${rows.length} fila(s). Revisá los campos en rojo, corregí el Excel y volvé a subir el archivo, o importá solo las filas válidas.`,
+          );
         }
       } catch (e) {
         setMessage(
           e instanceof Error
             ? e.message
-            : "No se pudo leer el archivo. Verificá que sea una copia de la plantilla.",
+            : "No se pudo leer el archivo. Verificá que sea un .xlsx válido.",
         );
       } finally {
         setBusy(false);
@@ -73,9 +100,58 @@ export const ImportarFormulariosPage = () => {
     [authUsername],
   );
 
+  const onConfirmImport = useCallback(async () => {
+    if (!importBuffer) {
+      return;
+    }
+    const idUsuario = toSafeUserId(authUsername ?? "");
+    setBusyImport(true);
+    setMessage(null);
+    try {
+      const { ok, errors } = await parsePlantillaWorkbook(importBuffer, idUsuario);
+      let n = 0;
+      for (const form of ok) {
+        await enqueueForm(form);
+        n += 1;
+      }
+      if (errors.length === 0 && n > 0) {
+        setMessage(
+          `Se importaron ${n} formulario(s) a la cola local. Podés sincronizar cuando tengas conexión.`,
+        );
+        resetPreview();
+      } else if (n > 0 && errors.length > 0) {
+        setMessage(
+          `Se importaron ${n} formulario(s). ${errors.length} fila(s) no se importaron (revisá la vista previa y el Excel).`,
+        );
+        const buffer = importBuffer;
+        const { rows, errors: prevErr } = await previewPlantillaWorkbook(
+          buffer,
+          idUsuario,
+        );
+        setPreviewRows(rows);
+        setPreviewErrors(prevErr);
+      } else if (n === 0 && errors.length > 0) {
+        setMessage("No se importó ningún registro. Revisá los errores en la vista previa.");
+      } else {
+        setMessage("No había filas válidas para importar.");
+      }
+    } catch (e) {
+      setMessage(
+        e instanceof Error
+          ? e.message
+          : "No se pudo completar la importación.",
+      );
+    } finally {
+      setBusyImport(false);
+    }
+  }, [authUsername, importBuffer, resetPreview]);
+
+  const globalPreviewError =
+    previewErrors.length > 0 ? previewErrors[0] : null;
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
-      <div className="mx-auto w-full max-w-2xl">
+      <div className="mx-auto w-full max-w-3xl">
         <header className="mb-8">
           <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-700">
             NoSignal
@@ -118,7 +194,7 @@ export const ImportarFormulariosPage = () => {
             <input
               type="file"
               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-              disabled={busy}
+              disabled={busy || busyImport}
               className="text-sm font-normal file:mr-3 file:rounded-lg file:border file:border-slate-200 file:bg-slate-50 file:px-3 file:py-2 file:text-sm file:font-medium"
               onChange={(e) => {
                 const f = e.target.files?.[0] ?? null;
@@ -132,25 +208,75 @@ export const ImportarFormulariosPage = () => {
             <span className="font-mono text-slate-700">{authUsername ?? "—"}</span>{" "}
             ({toSafeUserId(authUsername ?? "")})
           </p>
+          {fileLabel ? (
+            <p className="mt-2 text-xs text-slate-600">
+              Archivo: <span className="font-medium">{fileLabel}</span>
+            </p>
+          ) : null}
           {busy ? (
-            <p className="mt-4 text-sm text-slate-600">Importando…</p>
+            <p className="mt-4 text-sm text-slate-600">Leyendo vista previa…</p>
           ) : null}
           {message ? (
             <p className="mt-4 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-800">
               {message}
             </p>
           ) : null}
-          {rowErrors.length > 0 ? (
-            <div className="mt-4 max-h-48 overflow-y-auto rounded-lg border border-amber-200 bg-amber-50/80 px-3 py-2 text-sm">
-              <p className="font-semibold text-amber-950">Errores por fila</p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-amber-900">
-                {rowErrors.map((err, i) => (
-                  <li key={`${err.row}-${i}`}>
-                    {err.row === 0 ? "General" : `Fila ${err.row}`}:{" "}
-                    {err.message}
-                  </li>
+          {globalPreviewError ? (
+            <div className="mt-4 rounded-lg border border-red-200 bg-red-50/90 px-3 py-2 text-sm text-red-900">
+              {globalPreviewError.row === 0 ? "General" : `Fila ${globalPreviewError.row}`}:{" "}
+              {globalPreviewError.message}
+            </div>
+          ) : null}
+
+          {previewRows && previewRows.length > 0 ? (
+            <div className="mt-6 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <p className="text-sm text-slate-700">
+                  <strong>{validCount}</strong> fila(s) válida(s)
+                  {invalidCount > 0 ? (
+                    <>
+                      {" "}
+                      · <strong className="text-red-700">{invalidCount}</strong>{" "}
+                      con errores
+                    </>
+                  ) : null}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-slate-200"
+                    disabled={busy || busyImport}
+                    onClick={() => resetPreview()}
+                  >
+                    Quitar archivo
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="bg-teal-700 text-white hover:bg-teal-800"
+                    disabled={
+                      busy || busyImport || validCount === 0 || !importBuffer
+                    }
+                    onClick={() => void onConfirmImport()}
+                  >
+                    {busyImport
+                      ? "Importando…"
+                      : `Importar ${validCount} fila(s) válida(s)`}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                Los campos con borde rojo no cumplen formato o tipo de dato. Las
+                fechas deben ser interpretables (por ejemplo{" "}
+                <strong>15/03/2026</strong> o <strong>2026-03-15</strong>).
+              </p>
+              <div className="max-h-[min(70vh,720px)] space-y-3 overflow-y-auto pr-1">
+                {previewRows.map((row) => (
+                  <ImportPreviewRowCard key={row.sheetRow} row={row} />
                 ))}
-              </ul>
+              </div>
             </div>
           ) : null}
         </div>

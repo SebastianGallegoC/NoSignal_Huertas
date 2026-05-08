@@ -7,9 +7,13 @@ import {
   MATRIZ_SHEET_NAME,
 } from "@/services/matrizCaracterizacionExport";
 import {
+  FECHA_FORMATO_MSG,
   joinValidationMessages,
+  validateFormValuesWithFieldDetails,
   validateOfflineFormPayload,
 } from "@/services/formValidation";
+import type { FormFieldKey, FormValues } from "@/types/formFields";
+import { REQUIRED_FIELDS } from "@/types/formFields";
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,6 +24,78 @@ export type PlantillaImportResult = {
   ok: OfflineForm[];
   errors: ImportRowError[];
 };
+
+export type ImportPreviewExtraKey = "id_formulario" | "longitud" | "latitud";
+
+export type ImportPreviewFieldErrors = Partial<
+  Record<FormFieldKey | ImportPreviewExtraKey, string>
+>;
+
+export type ImportPreviewRow = {
+  /** Número de fila en el Excel (1-based). */
+  sheetRow: number;
+  idRaw: string;
+  displayValues: FormValues;
+  fieldErrors: ImportPreviewFieldErrors;
+  rowMessages: string[];
+  isValid: boolean;
+};
+
+export type PlantillaPreviewResult = {
+  rows: ImportPreviewRow[];
+  errors: ImportRowError[];
+};
+
+function isValidYmd(ymd: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+    return false;
+  }
+  const [y, m, d] = ymd.split("-").map((x) => Number(x));
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return false;
+  }
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+function mergeFieldError(
+  acc: ImportPreviewFieldErrors,
+  field: FormFieldKey | ImportPreviewExtraKey,
+  message: string,
+) {
+  if (!acc[field]) {
+    acc[field] = message;
+  }
+}
+
+/** Valores mostrados tal como vienen del Excel (texto por celda). */
+export function cellsToFormValuesRaw(cells: string[]): FormValues {
+  const out = {} as FormValues;
+  for (const key of REQUIRED_FIELDS) {
+    out[key] = "";
+  }
+  for (let i = 0; i < MATRIZ_ROW_CELL_SOURCES.length; i++) {
+    const src = MATRIZ_ROW_CELL_SOURCES[i];
+    const val = cells[i] ?? "";
+    switch (src.kind) {
+      case "field":
+        out[src.key] = val;
+        break;
+      case "fecha":
+        out[src.key] = val;
+        break;
+      case "lon":
+        out.longitud = val;
+        break;
+      case "lat":
+        out.latitud = val;
+        break;
+      default:
+        break;
+    }
+  }
+  return out;
+}
 
 function valueToImportString(raw: unknown): string {
   if (raw == null) {
@@ -192,6 +268,171 @@ function rowToOfflineForm(
   return { form };
 }
 
+/** Valores para validar: igual que la fila en bruto, con fechas normalizadas a YYYY-MM-DD cuando el Excel es válido. */
+function cellsToFormValuesNormalized(cells: string[]): FormValues {
+  const out = cellsToFormValuesRaw(cells);
+  for (let i = 0; i < MATRIZ_ROW_CELL_SOURCES.length; i++) {
+    const src = MATRIZ_ROW_CELL_SOURCES[i];
+    if (src.kind !== "fecha") {
+      continue;
+    }
+    const cellRaw = cells[i] ?? "";
+    const parsed = parseFechaCellForDatos(cellRaw);
+    out[src.key] = isValidYmd(parsed) ? parsed : "";
+  }
+  return out;
+}
+
+export function analyzeImportRow(
+  cells: string[],
+  sheetRow: number,
+  idUsuario: string,
+  nowIso: string,
+): ImportPreviewRow {
+  const displayValues = cellsToFormValuesRaw(cells);
+  const idRaw = (cells[0] ?? "").trim();
+  const fieldErrors: ImportPreviewFieldErrors = {};
+  const rowMessages: string[] = [];
+
+  if (idRaw && !UUID_RE.test(idRaw)) {
+    mergeFieldError(
+      fieldErrors,
+      "id_formulario",
+      `ID no es un UUID válido. Dejá la celda vacía para generar uno nuevo. Valor: «${idRaw.slice(0, 40)}${idRaw.length > 40 ? "…" : ""}».`,
+    );
+  }
+
+  let lonStr = "";
+  let latStr = "";
+  for (let i = 0; i < MATRIZ_ROW_CELL_SOURCES.length; i++) {
+    const src = MATRIZ_ROW_CELL_SOURCES[i];
+    if (src.kind === "lon") {
+      lonStr = cells[i] ?? "";
+    }
+    if (src.kind === "lat") {
+      latStr = cells[i] ?? "";
+    }
+  }
+
+  if (parseCoord(lonStr) == null) {
+    mergeFieldError(
+      fieldErrors,
+      "longitud",
+      "LONGITUD debe ser un número decimal (ej. -74.08175; también se admite coma como separador).",
+    );
+  }
+  if (parseCoord(latStr) == null) {
+    mergeFieldError(
+      fieldErrors,
+      "latitud",
+      "LATITUD debe ser un número decimal (ej. 4.60971; también se admite coma como separador).",
+    );
+  }
+
+  for (let i = 0; i < MATRIZ_ROW_CELL_SOURCES.length; i++) {
+    const src = MATRIZ_ROW_CELL_SOURCES[i];
+    if (src.kind !== "fecha") {
+      continue;
+    }
+    const cellRaw = (cells[i] ?? "").trim();
+    if (!cellRaw) {
+      continue;
+    }
+    const parsed = parseFechaCellForDatos(cellRaw);
+    if (!isValidYmd(parsed)) {
+      mergeFieldError(fieldErrors, src.key, FECHA_FORMATO_MSG);
+    }
+  }
+
+  const normalized = cellsToFormValuesNormalized(cells);
+  const { fieldIssues, rowIssues } = validateFormValuesWithFieldDetails(normalized);
+  for (const fi of fieldIssues) {
+    mergeFieldError(fieldErrors, fi.field, fi.message);
+  }
+  for (const ri of rowIssues) {
+    rowMessages.push(ri.message);
+  }
+
+  const { form, error } = rowToOfflineForm(cells, idUsuario.trim(), nowIso);
+  const hasGranular =
+    Object.keys(fieldErrors).length > 0 || rowMessages.length > 0;
+  let isValid = Boolean(form) && !hasGranular;
+  if (!form && error) {
+    if (!hasGranular) {
+      rowMessages.push(error);
+    }
+    isValid = false;
+  }
+  if (form && hasGranular) {
+    isValid = false;
+  }
+
+  return {
+    sheetRow,
+    idRaw,
+    displayValues,
+    fieldErrors,
+    rowMessages,
+    isValid,
+  };
+}
+
+async function loadPlantillaSheet(
+  buffer: ArrayBuffer,
+): Promise<{ worksheet: ExcelJS.Worksheet } | { error: ImportRowError }> {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buffer);
+  const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
+  if (!ws) {
+    return { error: { row: 0, message: "El archivo no contiene hojas." } };
+  }
+  return { worksheet: ws };
+}
+
+/**
+ * Vista previa por fila (errores por campo) sin importar aún a la cola.
+ */
+export async function previewPlantillaWorkbook(
+  buffer: ArrayBuffer,
+  idUsuario: string,
+): Promise<PlantillaPreviewResult> {
+  if (!idUsuario.trim()) {
+    return {
+      rows: [],
+      errors: [{ row: 0, message: "Falta usuario para asociar los formularios." }],
+    };
+  }
+
+  const loaded = await loadPlantillaSheet(buffer);
+  if ("error" in loaded) {
+    return { rows: [], errors: [loaded.error] };
+  }
+
+  const ws = loaded.worksheet;
+  const nowIso = new Date().toISOString();
+  const rows: ImportPreviewRow[] = [];
+  let rowNum = 8;
+  const maxRow = ws.rowCount || 8;
+
+  while (rowNum <= maxRow) {
+    const row = ws.getRow(rowNum);
+    const cells = readDataRowStrings(row);
+
+    if (isRowCompletelyEmpty(cells)) {
+      rowNum += 1;
+      continue;
+    }
+    if (isRowEndOfData(cells)) {
+      break;
+    }
+
+    rows.push(analyzeImportRow(cells, rowNum, idUsuario.trim(), nowIso));
+    rowNum += 1;
+  }
+
+  return { rows, errors: [] };
+}
+
 /**
  * Lee un .xlsx alineado a la plantilla: hoja F-PSA-08 (o la primera hoja), fila 7 reservada a
  * encabezados (no se validan los textos), datos desde la fila 8 por posición de columna (1–76).
@@ -210,16 +451,11 @@ export async function parsePlantillaWorkbook(
     };
   }
 
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buffer);
-
-  const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
-  if (!ws) {
-    return {
-      ok: [],
-      errors: [{ row: 0, message: "El archivo no contiene hojas." }],
-    };
+  const loaded = await loadPlantillaSheet(buffer);
+  if ("error" in loaded) {
+    return { ok: [], errors: [loaded.error] };
   }
+  const ws = loaded.worksheet;
 
   const nowIso = new Date().toISOString();
   let rowNum = 8;

@@ -1,10 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { FieldErrors, UseFormReset, UseFormSetFocus } from "react-hook-form";
+import type { FieldErrors, UseFormSetFocus } from "react-hook-form";
 
 import type { FormEnvioResultState } from "@/components/form/FormEnvioResultModal";
 import { fieldLabel } from "@/config/formFieldMeta";
 import { FORM_SECTIONS } from "@/config/formSections";
-import { randomUuid } from "@/lib/randomUuid";
 import type { OfflineForm } from "@/services/db";
 import type { FotoForm } from "@/services/db";
 import { clearFormDraft } from "@/services/formDraftStorage";
@@ -33,16 +32,11 @@ type Args = {
   idUsuario: string;
   authUsername: string | null;
   draftUserKey: string;
-  defaults: FormValues;
   modoCoordenadas: "automatico" | "manual";
   setBanner: (v: string | null) => void;
   setEnvioModal: (v: FormEnvioResultState | null) => void;
   setEnviando: (v: boolean) => void;
-  setFotos: (v: FotoForm[]) => void;
-  setFormId: (v: string) => void;
-  setOriginalFechaHora: (v: string | null) => void;
   refreshPendientes: () => Promise<void>;
-  reset: UseFormReset<FormValues>;
   setOpenSections: Dispatch<SetStateAction<Set<string>>>;
   setFocus: UseFormSetFocus<FormValues>;
   toSafeUserId: (raw: string) => string;
@@ -127,16 +121,11 @@ export const useFormularioSubmit = ({
   idUsuario,
   authUsername,
   draftUserKey,
-  defaults,
   modoCoordenadas,
   setBanner,
   setEnvioModal,
   setEnviando,
-  setFotos,
-  setFormId,
-  setOriginalFechaHora,
   refreshPendientes,
-  reset,
   setOpenSections,
   setFocus,
   toSafeUserId,
@@ -263,10 +252,6 @@ export const useFormularioSubmit = ({
           });
         }
       }
-      reset(defaults);
-      setFotos([]);
-      setFormId(randomUuid());
-      setOriginalFechaHora(null);
       await refreshPendientes();
     } catch {
       setBanner(null);

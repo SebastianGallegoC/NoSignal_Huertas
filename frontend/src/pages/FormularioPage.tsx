@@ -180,7 +180,7 @@ export const FormularioPage = () => {
     setBanner,
   });
 
-  const confirmarLimpiarFormulario = useCallback(() => {
+  const restablecerFormularioAVacio = useCallback(() => {
     stopCamera();
     limpiarUbicacion();
     reset(defaults);
@@ -197,8 +197,12 @@ export const FormularioPage = () => {
     if (pickerInputRef.current) {
       pickerInputRef.current.value = "";
     }
-    setModalLimpiarAbierto(false);
   }, [limpiarUbicacion, reset, defaults, draftUserKey, stopCamera]);
+
+  const confirmarLimpiarFormulario = useCallback(() => {
+    restablecerFormularioAVacio();
+    setModalLimpiarAbierto(false);
+  }, [restablecerFormularioAVacio]);
 
   useEffect(() => {
     if (!modalLimpiarAbierto) {
@@ -280,16 +284,11 @@ export const FormularioPage = () => {
     originalFechaHora,
     authUsername,
     draftUserKey,
-    defaults,
     modoCoordenadas,
     setBanner,
     setEnvioModal,
     setEnviando,
-    setFotos,
-    setFormId,
-    setOriginalFechaHora,
     refreshPendientes,
-    reset,
     setOpenSections,
     setFocus,
     toSafeUserId: normalizeUserId,
@@ -314,10 +313,19 @@ export const FormularioPage = () => {
           message={envioModal.message}
           submittedForm={envioModal.submittedForm}
           onClose={() => {
-            const shouldGo = envioModal?.isEdit;
+            const modal = envioModal;
+            const shouldGo = modal?.isEdit;
+            const limpiarTrasEnvio = modal?.submittedForm != null;
             setEnvioModal(null);
             if (shouldGo) {
               navigate("/formularios-diligenciados");
+              return;
+            }
+            if (limpiarTrasEnvio) {
+              restablecerFormularioAVacio();
+              requestAnimationFrame(() => {
+                window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+              });
             }
           }}
         />

@@ -17,7 +17,6 @@ const TRI_FIELDS = new Set<FormFieldKey>([
   'cumple_criterios_arbol',
   'distancia_infraestructura_adecuada',
   'distancia_redes_electricas_adecuada',
-  'cercania_ronda_hidrica',
 ]);
 
 const NUMBER_FIELDS = new Set<FormFieldKey>([

@@ -1,0 +1,6 @@
+{
+  "minGpsPrecisionMeters": 0.1,
+  "maxGpsPrecisionCapMeters": 5,
+  "maxGpsAccuracyMeters": 5,
+  "legacyApiMaxGpsAccuracyMeters": 5
+}

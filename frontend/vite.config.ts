@@ -50,6 +50,9 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
+      '@gpsLimits': fileURLToPath(
+        new URL('../config/gps-limits.json', import.meta.url),
+      ),
     },
   },
 });

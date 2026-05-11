@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 
+import { inputKindForField } from "@/config/formFieldMeta";
 import { GPS_PLACEHOLDER_WHEN_NOT_CAPTURED } from "@/constants/gpsConfig";
 import { randomUuid } from "@/lib/randomUuid";
 import type { OfflineForm } from "@/services/db";
@@ -43,6 +44,52 @@ export type PlantillaPreviewResult = {
   rows: ImportPreviewRow[];
   errors: ImportRowError[];
 };
+
+/** Solo letras ASCII para comparar SI/NO/NR sin importar tildes ni puntuación. */
+function foldTriLetters(raw: string): string {
+  return raw
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+}
+
+/**
+ * Normaliza valores tri-estado (Si / No / NR) al importar desde Excel:
+ * ignora mayúsculas, espacios extra, tildes y signos (p. ej. " SÍ ", "no", "N.R.").
+ * Si no reconoce el valor, devuelve el texto recortado (la validación marcará error).
+ */
+export function normalizeTriImportValue(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  const key = foldTriLetters(trimmed);
+  if (key === "si") {
+    return "Si";
+  }
+  if (key === "no") {
+    return "No";
+  }
+  if (key === "nr") {
+    return "NR";
+  }
+  return trimmed;
+}
+
+function normalizeTriFieldsInFormValues(out: FormValues): void {
+  for (const key of REQUIRED_FIELDS) {
+    const fk = key as FormFieldKey;
+    if (inputKindForField(fk) !== "select-tri") {
+      continue;
+    }
+    const v = out[fk];
+    if (typeof v !== "string" || v.trim() === "") {
+      continue;
+    }
+    out[fk] = normalizeTriImportValue(v);
+  }
+}
 
 function isValidYmd(ymd: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
@@ -243,7 +290,10 @@ function rowToOfflineForm(
       case "id_formulario":
         break;
       case "field":
-        datos[src.key] = val;
+        datos[src.key] =
+          inputKindForField(src.key) === "select-tri"
+            ? normalizeTriImportValue(val)
+            : val;
         break;
       case "fecha":
         datos[src.key] = parseFechaCellForDatos(val);
@@ -320,6 +370,7 @@ function cellsToFormValuesNormalized(cells: string[]): FormValues {
     const parsed = parseFechaCellForDatos(cellRaw);
     out[src.key] = isValidYmd(parsed) ? parsed : "";
   }
+  normalizeTriFieldsInFormValues(out);
   return out;
 }
 
@@ -329,7 +380,7 @@ export function analyzeImportRow(
   idUsuario: string,
   nowIso: string,
 ): ImportPreviewRow {
-  const displayValues = cellsToFormValuesRaw(cells);
+  const displayValues = cellsToFormValuesNormalized(cells);
   const idRaw = (cells[0] ?? "").trim();
   const fieldErrors: ImportPreviewFieldErrors = {};
   const rowMessages: string[] = [];

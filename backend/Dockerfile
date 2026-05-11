@@ -5,14 +5,15 @@ ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Migraciones (alembic upgrade head) y metadatos; sin esto no existe `alembic.ini` en la imagen.
-COPY alembic.ini .
-COPY alembic ./alembic
+COPY backend/alembic.ini .
+COPY backend/alembic ./alembic
 
-COPY app ./app
+COPY backend/app ./app
+COPY config/gps-limits.json ./config/gps-limits.json
 
 EXPOSE 8000
 

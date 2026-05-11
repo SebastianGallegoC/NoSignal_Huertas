@@ -12,6 +12,7 @@ import {
   analyzeImportRow,
   cellsToFormValuesRaw,
   formValuesToCells,
+  normalizeTriImportValue,
   parseFechaCellForDatos,
   parsePlantillaWorkbook,
   previewPlantillaWorkbook,
@@ -35,6 +36,27 @@ async function buildMinimalPlantillaBuffer(
   const u8 = new Uint8Array(buf as ArrayBuffer);
   return u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
 }
+
+describe("normalizeTriImportValue", () => {
+  it.each([
+    ["SI", "Si"],
+    ["  sí  ", "Si"],
+    ["SÍ", "Si"],
+    ["no", "No"],
+    ["NO", "No"],
+    ["Nr", "NR"],
+    ["n.r.", "NR"],
+    ["", ""],
+    ["   ", ""],
+  ])("%s → %s", (input, expected) => {
+    expect(normalizeTriImportValue(input)).toBe(expected);
+  });
+
+  it("deja valores no reconocidos para que falle la validación", () => {
+    expect(normalizeTriImportValue("quizás")).toBe("quizás");
+    expect(normalizeTriImportValue("N/A")).toBe("N/A");
+  });
+});
 
 describe("parseFechaCellForDatos", () => {
   it("convierte DD/MM/AAAA a YYYY-MM-DD", () => {
@@ -187,5 +209,29 @@ describe("parsePlantillaWorkbook", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0].sheetRow).toBe(8);
     expect(rows[0].isValid).toBe(true);
+  });
+
+  it("acepta SI/NO/NR en Excel con distinta capitalización y tildes (mujer_cabeza_hogar)", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Benef tri";
+    row[37] = "  SÍ  ";
+    row[29] = "-74.0";
+    row[33] = "4.0";
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "u");
+    expect(errors).toHaveLength(0);
+    expect(ok[0].datos_formulario.mujer_cabeza_hogar).toBe("Si");
+  });
+
+  it("analyzeImportRow normaliza tri en displayValues", () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Ana";
+    row[37] = "no";
+    row[29] = "-74.0";
+    row[33] = "4.0";
+    const cells = row.map((v) => (v == null ? "" : String(v)));
+    const preview = analyzeImportRow(cells, 8, "u1", new Date().toISOString());
+    expect(preview.isValid).toBe(true);
+    expect(preview.displayValues.mujer_cabeza_hogar).toBe("No");
   });
 });

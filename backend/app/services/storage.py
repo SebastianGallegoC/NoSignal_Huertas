@@ -15,16 +15,23 @@ from app.schemas.form_payload import PhotoPayload
 logger = logging.getLogger(__name__)
 
 
-def normalize_stored_foto_paths(raw: object) -> list[str]:
-    """Rutas de archivo en orden. Acepta lista de str (legado) o de dicts `{"path", "visita?"}`."""
+def _coerce_json_list(raw: object) -> list[Any] | None:
     if raw is None:
-        return []
+        return None
     if isinstance(raw, str):
         try:
             raw = json.loads(raw)
         except json.JSONDecodeError:
-            return []
+            return None
     if not isinstance(raw, list):
+        return None
+    return raw
+
+
+def normalize_stored_foto_paths(raw: object) -> list[str]:
+    """Rutas de archivo en orden. Acepta lista de str (legado) o de dicts `{"path", "visita?"}`."""
+    items = _coerce_json_list(raw)
+    if not items:
         return []
     out: list[str] = []
     for p in raw:
@@ -39,17 +46,11 @@ def normalize_stored_foto_paths(raw: object) -> list[str]:
 
 def fotos_json_for_api_list(raw: object) -> list[Any]:
     """Lista para `GET /forms`: str (legado) o `{"path", "visita?}` para que cualquier cliente agrupe por visita."""
-    if raw is None:
-        return []
-    if isinstance(raw, str):
-        try:
-            raw = json.loads(raw)
-        except json.JSONDecodeError:
-            return []
-    if not isinstance(raw, list):
+    items = _coerce_json_list(raw)
+    if not items:
         return []
     out: list[Any] = []
-    for item in raw:
+    for item in items:
         if isinstance(item, str) and item.strip():
             out.append(item.strip())
             continue

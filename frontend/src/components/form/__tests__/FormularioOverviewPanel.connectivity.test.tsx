@@ -33,14 +33,14 @@ describe("FormularioOverviewPanel connectivity", () => {
     vi.clearAllMocks();
   });
 
-  it("cuando está offline oculta el iframe y deshabilita el enlace externo", () => {
+  it("cuando está offline oculta el iframe y deshabilita el enlace externo", async () => {
     mockUseConnectivityStatus.mockReturnValue(false);
 
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
 
-    act(() => {
+    await act(async () => {
       root.render(<FormularioOverviewPanel {...defaultProps} />);
     });
 
@@ -52,18 +52,20 @@ describe("FormularioOverviewPanel connectivity", () => {
     expect(link?.textContent).toContain("Abrir ubicación (requiere conexión)");
     expect(link?.getAttribute("href")).toBeNull();
 
-    root.unmount();
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 
-  it("cuando está online muestra el mapa y el enlace externo", () => {
+  it("cuando está online muestra el mapa y el enlace externo", async () => {
     mockUseConnectivityStatus.mockReturnValue(true);
 
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
 
-    act(() => {
+    await act(async () => {
       root.render(<FormularioOverviewPanel {...defaultProps} />);
     });
 
@@ -74,7 +76,9 @@ describe("FormularioOverviewPanel connectivity", () => {
     expect(link?.textContent).toContain("Abrir ubicación en OpenStreetMap");
     expect(link?.getAttribute("href")).toBe("https://osm/1,2");
 
-    root.unmount();
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 });

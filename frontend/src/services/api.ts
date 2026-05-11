@@ -1,5 +1,10 @@
 import { ACCESS_TOKEN_KEY } from '@/lib/authStorage';
 import {
+  LEGACY_API_MAX_GPS_ACCURACY_METERS,
+  MIN_GPS_PRECISION_METERS,
+} from '@/constants/gpsConfig';
+import { normalizeUserId } from '@/lib/userIdNormalization';
+import {
   agentSessionLog,
   beneficiaryFieldProbe,
   idSuffix,
@@ -8,9 +13,6 @@ import {
 import type { OfflineForm } from './db';
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
-const LEGACY_API_MAX_GPS_ACCURACY_METERS = 100;
-const MIN_GPS_PRECISION_METERS = 0.1;
-
 type ApiFormPayload = {
   id_formulario: string;
   id_usuario: string;
@@ -39,25 +41,11 @@ function ensureFotoDataUrl(data: string): string {
   return s;
 }
 
-/** Ajusta id_usuario a formato seguro para backends con validación estricta. */
-function ensureSafeUserId(raw: string): string {
-  const base = (raw || '')
-    .trim()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/\s+/g, '_')
-    .replace(/[^A-Za-z0-9._-]/g, '')
-    .replace(/_+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 64);
-  return base || 'sin_usuario';
-}
-
 function payloadForApi(form: OfflineForm): ApiFormPayload {
   const fechaAct = form.fecha_actualizacion?.trim() || form.fecha_hora;
   const out: ApiFormPayload = {
     id_formulario: form.id_formulario,
-    id_usuario: ensureSafeUserId(form.id_usuario),
+    id_usuario: normalizeUserId(form.id_usuario),
     fecha_hora: form.fecha_hora,
     gps: {
       ...form.gps,

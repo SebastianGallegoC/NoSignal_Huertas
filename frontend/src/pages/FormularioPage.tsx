@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { ChangeEvent } from "react";
 import { useForm } from "react-hook-form";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -19,48 +18,23 @@ import { FORM_SECTIONS } from "@/config/formSections";
 import { USUARIOS_FORMULARIO } from "@/config/usuariosFormulario";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import { useGPS } from "@/hooks/useGPS";
-import { useCameraCapture } from "@/hooks/useCameraCapture";
 import { useFormularioSubmit } from "@/hooks/useFormularioSubmit";
-import { compressImageFile, fileToDataUrl } from "@/services/imageCompression";
 import {
   clearFormDraft,
   loadFormDraft,
-  saveFormDraft,
   shouldPersistFormDraft,
 } from "@/services/formDraftStorage";
 import { isNetworkLikeError, syncPendingForms } from "@/services/sync";
 import type { FotoForm } from "@/services/db";
 import { randomUuid } from "@/lib/randomUuid";
+import { normalizeUserId } from "@/lib/userIdNormalization";
 import { useAuthStore } from "@/store/useAuthStore";
 import { REQUIRED_FIELDS, type FormValues } from "@/types/formFields";
-
-const buildExternalMapUrl = (latitud: number, longitud: number): string => {
-  return `https://www.openstreetmap.org/?mlat=${latitud}&mlon=${longitud}#map=18/${latitud}/${longitud}`;
-};
-
-const buildMapUrl = (latitud: number, longitud: number): string => {
-  const delta = 0.003;
-  const bbox = [
-    longitud - delta,
-    latitud - delta,
-    longitud + delta,
-    latitud + delta,
-  ].join(",");
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitud},${longitud}`;
-};
-
-const toSafeUserId = (raw: string): string => {
-  const base = (raw || "")
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Za-z0-9._-]/g, "")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 64);
-  return base || "sin_usuario";
-};
+import { buildExternalMapUrl, buildMapUrl } from "@/pages/formulario/mapUtils";
+import { useGpsFormFields } from "@/pages/formulario/useGpsFormFields";
+import { useFormDraftPersistence } from "@/pages/formulario/useFormDraftPersistence";
+import { usePhotoCapture } from "@/pages/formulario/usePhotoCapture";
+import { FormClearModal } from "@/pages/formulario/FormClearModal";
 
 export const FormularioPage = () => {
   const authUsername = useAuthStore((s) => s.username);
@@ -173,140 +147,23 @@ export const FormularioPage = () => {
     };
   }, [formValues.latitud, formValues.longitud, gps, modoCoordenadas]);
 
-  const draftUserKeyRef = useRef(draftUserKey);
-  draftUserKeyRef.current = draftUserKey;
-  const defaultsRef = useRef(defaults);
-  defaultsRef.current = defaults;
-  const idUsuarioRef = useRef(idUsuario);
-  idUsuarioRef.current = idUsuario;
-  const fotosRef = useRef(fotos);
-  fotosRef.current = fotos;
-  const formIdRef = useRef(formId);
-  formIdRef.current = formId;
-  const originalFechaHoraRef = useRef(originalFechaHora);
-  originalFechaHoraRef.current = originalFechaHora;
-  const gpsRef = useRef(gps);
-  gpsRef.current = gps;
-  const modoCoordenadasRef = useRef(modoCoordenadas);
-  modoCoordenadasRef.current = modoCoordenadas;
-
-  const flushDraftToStorage = useCallback(() => {
-    const userKey = draftUserKeyRef.current;
-    const values = getValues();
-    const def = defaultsRef.current;
-    const idU = idUsuarioRef.current;
-    const f = fotosRef.current;
-    const fid = formIdRef.current;
-    const fFecha = originalFechaHoraRef.current;
-    const g = gpsRef.current;
-    const modo = modoCoordenadasRef.current;
-    if (!shouldPersistFormDraft(values, def, idU, f.length, g !== null)) {
-      clearFormDraft(userKey);
-      return;
-    }
-    saveFormDraft(userKey, {
-      v: 1,
-      savedAt: new Date().toISOString(),
-      formId: fid,
-      originalFechaHora: fFecha,
-      idUsuario: idU,
-      modoCoordenadas: modo,
-      formValues: values,
-      fotos: f,
-      gps: g
-        ? { latitud: g.latitud, longitud: g.longitud, precision: g.precision }
-        : null,
-    });
-  }, [getValues]);
-
-  useEffect(() => {
-    return () => {
-      flushDraftToStorage();
-    };
-  }, [flushDraftToStorage]);
-
-  useEffect(() => {
-    const userKey = draftUserKey;
-    if (
-      !shouldPersistFormDraft(
-        formValues,
-        defaults,
-        idUsuario,
-        fotos.length,
-        gps !== null,
-      )
-    ) {
-      clearFormDraft(userKey);
-      return;
-    }
-    const handle = window.setTimeout(() => {
-      flushDraftToStorage();
-    }, 450);
-    return () => window.clearTimeout(handle);
-  }, [
-    formValues,
-    defaults,
+  useFormDraftPersistence({
     draftUserKey,
+    defaults,
+    formValues,
     idUsuario,
     fotos,
     formId,
-    gps,
     originalFechaHora,
-    flushDraftToStorage,
-  ]);
+    gps,
+    modoCoordenadas,
+    getValues,
+  });
 
   const refreshPendientes = useCallback(async () => {
     // Contadores viven en Inicio; el hook de envío sigue esperando esta firma.
   }, []);
 
-  const processIncomingFiles = async (
-    files: File[],
-    visita: 1 | 2 | 3,
-    saveToDevice = false,
-  ) => {
-    if (!files.length) {
-      return;
-    }
-    setBanner(null);
-    const combined = [...fotos];
-    for (const file of files) {
-      if (combined.length >= 15) {
-        setBanner("Máximo 15 fotos. Se ignoraron archivos adicionales.");
-        break;
-      }
-      try {
-        const compressed = await compressImageFile(file);
-        const data = await fileToDataUrl(compressed);
-        const nombre =
-          compressed.name.replace(/[^\w.-]+/g, "_") ||
-          `foto_${combined.length + 1}.jpg`;
-        combined.push({ nombre_archivo: nombre, data, visita });
-        if (saveToDevice) {
-          const downloadUrl = URL.createObjectURL(compressed);
-          const anchor = document.createElement("a");
-          anchor.href = downloadUrl;
-          anchor.download = nombre;
-          anchor.click();
-          URL.revokeObjectURL(downloadUrl);
-        }
-      } catch {
-        setBanner(
-          "No se pudo procesar una de las imágenes. Probá con otra foto.",
-        );
-      }
-    }
-    setFotos(combined);
-  };
-
-  const onFotosChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    if (!visitaFotoSeleccionada) {
-      setBanner("Seleccioná visita 1, 2 o 3 antes de cargar fotos.");
-      return;
-    }
-    await processIncomingFiles(files, visitaFotoSeleccionada, false);
-  };
   const {
     cameraOpen,
     captureFlash,
@@ -315,21 +172,14 @@ export const FormularioPage = () => {
     openCamera,
     stopCamera,
     captureFromCamera,
-  } = useCameraCapture({
-    onCapturedFile: async (file) => {
-      if (!visitaFotoSeleccionada) {
-        setBanner("Seleccioná visita 1, 2 o 3 antes de tomar fotos.");
-        return;
-      }
-      // Sin descarga automática: en móvil suele bloquearse o demorar y no aporta al envío.
-      await processIncomingFiles([file], visitaFotoSeleccionada, false);
-    },
+    onFotosChange,
+    quitarFoto,
+  } = usePhotoCapture({
+    fotos,
+    setFotos,
+    visitaFotoSeleccionada,
     setBanner,
   });
-
-  const quitarFoto = (index: number) => {
-    setFotos((prev) => prev.filter((_, i) => i !== index));
-  };
 
   const confirmarLimpiarFormulario = useCallback(() => {
     stopCamera();
@@ -418,54 +268,13 @@ export const FormularioPage = () => {
     setSincronizando(false);
   };
 
-  const decimalToDms = (decimal: number) => {
-    const abs = Math.abs(decimal);
-    const grados = Math.floor(abs);
-    const minutosFloat = (abs - grados) * 60;
-    const minutos = Math.floor(minutosFloat);
-    const segundos = (minutosFloat - minutos) * 60;
-    return { grados, minutos, segundos };
-  };
-
-  useEffect(() => {
-    if (!gps || modoCoordenadas === "manual") {
-      return;
-    }
-    const longDms = decimalToDms(gps.longitud);
-    const latDms = decimalToDms(gps.latitud);
-
-    setValue("longitud", gps.longitud.toFixed(6));
-    setValue("latitud", gps.latitud.toFixed(6));
-    setValue("x_grados", String(longDms.grados));
-    setValue("x_minutos", String(longDms.minutos));
-    setValue("x_segundos", longDms.segundos.toFixed(3));
-    setValue("y_grados", String(latDms.grados));
-    setValue("y_minutos", String(latDms.minutos));
-    setValue("y_segundos", latDms.segundos.toFixed(3));
-  }, [gps, modoCoordenadas, setValue]);
-
-  useEffect(() => {
-    if (modoCoordenadas !== "manual") {
-      return;
-    }
-
-    const longitud = Number.parseFloat(formValues.longitud);
-    const latitud = Number.parseFloat(formValues.latitud);
-
-    if (!Number.isFinite(longitud) || !Number.isFinite(latitud)) {
-      return;
-    }
-
-    const longDms = decimalToDms(longitud);
-    const latDms = decimalToDms(latitud);
-
-    setValue("x_grados", String(longDms.grados));
-    setValue("x_minutos", String(longDms.minutos));
-    setValue("x_segundos", longDms.segundos.toFixed(3));
-    setValue("y_grados", String(latDms.grados));
-    setValue("y_minutos", String(latDms.minutos));
-    setValue("y_segundos", latDms.segundos.toFixed(3));
-  }, [formValues.latitud, formValues.longitud, modoCoordenadas, setValue]);
+  useGpsFormFields({
+    gps,
+    modoCoordenadas,
+    latitud: formValues.latitud,
+    longitud: formValues.longitud,
+    setValue,
+  });
 
   const { onValid, onInvalid } = useFormularioSubmit({
     gps: gpsFormulario,
@@ -488,7 +297,7 @@ export const FormularioPage = () => {
     reset,
     setOpenSections,
     setFocus,
-    toSafeUserId,
+    toSafeUserId: normalizeUserId,
     requiredFields: REQUIRED_FIELDS,
   });
   const coordenadasSection = useMemo(
@@ -518,54 +327,11 @@ export const FormularioPage = () => {
           }}
         />
       ) : null}
-      {modalLimpiarAbierto ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          role="presentation"
-        >
-          <button
-            type="button"
-            className="absolute inset-0 bg-slate-900/45 backdrop-blur-[1px]"
-            aria-label="Cerrar"
-            onClick={() => setModalLimpiarAbierto(false)}
-          />
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="limpiar-formulario-title"
-            className="relative z-10 w-full max-w-md rounded-2xl border border-amber-200 bg-white p-6 shadow-xl ring-1 ring-amber-100"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2
-              id="limpiar-formulario-title"
-              className="text-lg font-semibold text-slate-900"
-            >
-              ¿Vaciar todo el formulario?
-            </h2>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              Se borrarán los datos diligenciados, las fotos y la ubicación (GPS
-              o manual). Vas a obtener un formulario nuevo vacío. Esta acción no
-              se puede deshacer.
-            </p>
-            <div className="mt-6 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setModalLimpiarAbierto(false)}
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                className="bg-amber-700 text-white hover:bg-amber-800"
-                onClick={confirmarLimpiarFormulario}
-              >
-                Sí, vaciar
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+      <FormClearModal
+        open={modalLimpiarAbierto}
+        onCancel={() => setModalLimpiarAbierto(false)}
+        onConfirm={confirmarLimpiarFormulario}
+      />
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
         <header className="flex flex-col gap-3 border-b border-teal-100 pb-4 sm:flex-row sm:items-center sm:justify-between">
           <div>

@@ -18,12 +18,12 @@ const defaultProps = {
 };
 
 describe("FormularioOverviewPanel", () => {
-  it("muestra botones GPS / Manual y dispara onChangeModoCoordenadas al elegir Manual", () => {
+  it("muestra botones GPS / Manual y dispara onChangeModoCoordenadas al elegir Manual", async () => {
     const onChange = vi.fn();
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
-    act(() => {
+    await act(async () => {
       root.render(
         <FormularioOverviewPanel
           {...defaultProps}
@@ -37,17 +37,21 @@ describe("FormularioOverviewPanel", () => {
       (b) => b.textContent === "Manual",
     ) as HTMLButtonElement;
     expect(manualBtn).toBeDefined();
-    manualBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await act(async () => {
+      manualBtn.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
     expect(onChange).toHaveBeenCalledWith("manual");
-    root.unmount();
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 
-  it("en modo Manual no muestra Tomar ubicación ni iframe del mapa", () => {
+  it("en modo Manual no muestra Tomar ubicación ni iframe del mapa", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
-    act(() => {
+    await act(async () => {
       root.render(
         <FormularioOverviewPanel
           {...defaultProps}
@@ -58,12 +62,14 @@ describe("FormularioOverviewPanel", () => {
     });
 
     expect(
-      Array.from(container.querySelectorAll("button")).some(
-        (b) => b.textContent?.includes("Tomar ubicación"),
+      Array.from(container.querySelectorAll("button")).some((b) =>
+        b.textContent?.includes("Tomar ubicación"),
       ),
     ).toBe(false);
     expect(container.querySelector("iframe")).toBeNull();
-    root.unmount();
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 });

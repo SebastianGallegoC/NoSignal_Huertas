@@ -26,29 +26,33 @@ function Wrapper({
 }
 
 describe("FormFieldRow editableGpsFields", () => {
-  it("marca campos GPS como readOnly cuando editableGpsFields=false", () => {
+  it("marca campos GPS como readOnly cuando editableGpsFields=false", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
-    act(() => {
+    await act(async () => {
       root.render(<Wrapper name="latitud" editable={false} />);
     });
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.readOnly).toBe(true);
-    root.unmount();
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 
-  it("permite editar campos GPS cuando editableGpsFields=true", () => {
+  it("permite editar campos GPS cuando editableGpsFields=true", async () => {
     const container = document.createElement("div");
     document.body.appendChild(container);
     const root = createRoot(container);
-    act(() => {
+    await act(async () => {
       root.render(<Wrapper name="latitud" editable={true} />);
     });
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.readOnly).toBe(false);
-    root.unmount();
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 });

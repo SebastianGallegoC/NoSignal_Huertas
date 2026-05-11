@@ -1,10 +1,10 @@
 import { earliestIso } from '@/lib/formatDateTime';
 import { db, type OfflineForm } from './db';
 import { postForm } from './api';
+import { MAX_GPS_ACCURACY_METERS } from '@/constants/gpsConfig';
 
 const RETENTION_DAYS = 3;
 const BACKOFF_STEPS_MS = [30_000, 60_000, 5 * 60_000, 15 * 60_000, 30 * 60_000];
-const MAX_GPS_ACCURACY_METERS = 100;
 const MIN_PHOTOS = 0;
 const MAX_PHOTOS = 15;
 

@@ -17,6 +17,10 @@ import {
   validateOfflineFormPayload,
 } from "@/services/formValidation";
 import type { FormFieldKey, FormValues } from "@/types/formFields";
+import {
+  MAX_GPS_PRECISION_METERS,
+  MIN_GPS_PRECISION_METERS,
+} from "@/constants/gpsConfig";
 
 type Args = {
   gps: { latitud: number; longitud: number; precision: number } | null;
@@ -55,9 +59,6 @@ type BuildPayloadArgs = {
   toSafeUserId: (raw: string) => string;
   modoCoordenadas?: "automatico" | "manual";
 };
-
-const MIN_GPS_PRECISION_METERS = 0.1;
-const MAX_GPS_PRECISION_METERS = 5;
 
 export const buildDatosFormulario = (
   values: FormValues,

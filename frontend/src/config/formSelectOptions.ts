@@ -17,8 +17,10 @@ const municipio_options = ["Abejorral", "Ábrego", "Abriaquí", "Acacías", "Aca
 const nivel_ingreso_promedio_options = ["MENOS DE UN (1) SMLV", "MAS DE UN (1) SMLV", "SISBEN"];
 const tenencia_predio_options = ["Propietario", "Poseedor", "Tenedor", "Sucesión iliquida", "Arriendo"];
 const zona_options = ["Urbana", "Rural"];
+const area_arbol_disponible_options = ["Si", "No"];
 
 export const fieldSelectOptions: Partial<Record<FormFieldKey, SelectOption[]>> = {
+  area_arbol_disponible: buildOptions(area_arbol_disponible_options),
   tipo_organizacion_entidad_aportante: buildOptions(tipo_organizacion_entidad_aportante_options),
   nombre_actividad: buildOptions(nombre_actividad_options),
   tipo_proyecto_financiacion: buildOptions(tipo_proyecto_financiacion_options),

@@ -1,6 +1,9 @@
 import ExcelJS from "exceljs";
 
-import { inputKindForField } from "@/config/formFieldMeta";
+import {
+  inputKindForField,
+  SI_NO_IMPORT_NORMALIZE_FIELDS,
+} from "@/config/formFieldMeta";
 import { GPS_PLACEHOLDER_WHEN_NOT_CAPTURED } from "@/constants/gpsConfig";
 import { randomUuid } from "@/lib/randomUuid";
 import type { OfflineForm } from "@/services/db";
@@ -57,6 +60,7 @@ function foldTriLetters(raw: string): string {
 /**
  * Normaliza valores tri-estado (Si / No / NR) al importar desde Excel:
  * ignora mayúsculas, espacios extra, tildes y signos (p. ej. " SÍ ", "no", "N.R.").
+ * "NO APLICA" (y variantes) se interpreta como No.
  * Si no reconoce el valor, devuelve el texto recortado (la validación marcará error).
  */
 export function normalizeTriImportValue(raw: string): string {
@@ -68,7 +72,7 @@ export function normalizeTriImportValue(raw: string): string {
   if (key === "si") {
     return "Si";
   }
-  if (key === "no") {
+  if (key === "no" || key === "noaplica") {
     return "No";
   }
   if (key === "nr") {
@@ -77,17 +81,36 @@ export function normalizeTriImportValue(raw: string): string {
   return trimmed;
 }
 
-function normalizeTriFieldsInFormValues(out: FormValues): void {
+/**
+ * Solo Si / No (p. ej. «Área árbol disponible»): misma flexibilidad que tri sin aceptar NR.
+ */
+export function normalizeSiNoImportValue(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === "") {
+    return "";
+  }
+  const key = foldTriLetters(trimmed);
+  if (key === "si") {
+    return "Si";
+  }
+  if (key === "no" || key === "noaplica") {
+    return "No";
+  }
+  return trimmed;
+}
+
+function normalizeImportEnumerationFieldsInFormValues(out: FormValues): void {
   for (const key of REQUIRED_FIELDS) {
     const fk = key as FormFieldKey;
-    if (inputKindForField(fk) !== "select-tri") {
-      continue;
-    }
     const v = out[fk];
     if (typeof v !== "string" || v.trim() === "") {
       continue;
     }
-    out[fk] = normalizeTriImportValue(v);
+    if (inputKindForField(fk) === "select-tri") {
+      out[fk] = normalizeTriImportValue(v);
+    } else if (SI_NO_IMPORT_NORMALIZE_FIELDS.has(fk)) {
+      out[fk] = normalizeSiNoImportValue(v);
+    }
   }
 }
 
@@ -289,12 +312,16 @@ function rowToOfflineForm(
     switch (src.kind) {
       case "id_formulario":
         break;
-      case "field":
-        datos[src.key] =
-          inputKindForField(src.key) === "select-tri"
-            ? normalizeTriImportValue(val)
-            : val;
+      case "field": {
+        let stored = val;
+        if (inputKindForField(src.key) === "select-tri") {
+          stored = normalizeTriImportValue(val);
+        } else if (SI_NO_IMPORT_NORMALIZE_FIELDS.has(src.key)) {
+          stored = normalizeSiNoImportValue(val);
+        }
+        datos[src.key] = stored;
         break;
+      }
       case "fecha":
         datos[src.key] = parseFechaCellForDatos(val);
         break;
@@ -370,7 +397,7 @@ function cellsToFormValuesNormalized(cells: string[]): FormValues {
     const parsed = parseFechaCellForDatos(cellRaw);
     out[src.key] = isValidYmd(parsed) ? parsed : "";
   }
-  normalizeTriFieldsInFormValues(out);
+  normalizeImportEnumerationFieldsInFormValues(out);
   return out;
 }
 

@@ -26,7 +26,6 @@ const NUMBER_FIELDS = new Set<FormFieldKey>([
   'numero_menores_edad',
   'numero_adultos_mayores',
   'area_huerta_m2',
-  'area_arbol_disponible',
   'produccion_kg',
   'satisfaccion_1_5',
   'superficie_total_intervenida_m2',
@@ -67,6 +66,11 @@ export const inputKindForField = (field: FormFieldKey): InputKind => {
   }
   return 'text';
 };
+
+/** Campos tipo select solo Si/No: en importación se normalizan variantes (tildes, NO APLICA, etc.). */
+export const SI_NO_IMPORT_NORMALIZE_FIELDS = new Set<FormFieldKey>([
+  'area_arbol_disponible',
+]);
 
 export const triOptions = [
   { value: '', label: '' },

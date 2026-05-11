@@ -1,5 +1,9 @@
 import { MAX_GPS_ACCURACY_METERS } from "@/constants/gpsConfig";
-import { fieldLabel, inputKindForField } from "@/config/formFieldMeta";
+import {
+  fieldLabel,
+  inputKindForField,
+  SI_NO_IMPORT_NORMALIZE_FIELDS,
+} from "@/config/formFieldMeta";
 import type { OfflineForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormFieldKey, type FormValues } from "@/types/formFields";
 const MIN_PHOTOS = 0;
@@ -103,6 +107,16 @@ export const validateFormValuesWithFieldDetails = (
           field: fk,
           code: `tri_${key}`,
           message: `En «${fieldLabel(fk)}» usá exactamente: Si, No o NR.`,
+        });
+      }
+    }
+    if (SI_NO_IMPORT_NORMALIZE_FIELDS.has(fk) && !isBlank(values[key])) {
+      const v = String(values[key]).trim();
+      if (v !== "Si" && v !== "No") {
+        fieldIssues.push({
+          field: fk,
+          code: `si_no_${key}`,
+          message: `En «${fieldLabel(fk)}» usá Si o No.`,
         });
       }
     }

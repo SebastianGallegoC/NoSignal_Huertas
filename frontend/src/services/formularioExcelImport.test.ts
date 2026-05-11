@@ -12,6 +12,7 @@ import {
   analyzeImportRow,
   cellsToFormValuesRaw,
   formValuesToCells,
+  normalizeSiNoImportValue,
   normalizeTriImportValue,
   parseFechaCellForDatos,
   parsePlantillaWorkbook,
@@ -44,6 +45,9 @@ describe("normalizeTriImportValue", () => {
     ["SÍ", "Si"],
     ["no", "No"],
     ["NO", "No"],
+    ["NO APLICA", "No"],
+    ["  no aplica  ", "No"],
+    ["No Aplica.", "No"],
     ["Nr", "NR"],
     ["n.r.", "NR"],
     ["", ""],
@@ -55,6 +59,22 @@ describe("normalizeTriImportValue", () => {
   it("deja valores no reconocidos para que falle la validación", () => {
     expect(normalizeTriImportValue("quizás")).toBe("quizás");
     expect(normalizeTriImportValue("N/A")).toBe("N/A");
+  });
+});
+
+describe("normalizeSiNoImportValue (área árbol / solo Si–No)", () => {
+  it.each([
+    ["SI", "Si"],
+    ["sí", "Si"],
+    ["NO", "No"],
+    ["no aplica", "No"],
+    ["NR", "NR"],
+  ])("%s → %s", (input, expected) => {
+    expect(normalizeSiNoImportValue(input)).toBe(expected);
+  });
+
+  it("NR no se reinterpreta: queda para error de validación Si/No", () => {
+    expect(normalizeSiNoImportValue("nr")).toBe("nr");
   });
 });
 
@@ -233,5 +253,17 @@ describe("parsePlantillaWorkbook", () => {
     const preview = analyzeImportRow(cells, 8, "u1", new Date().toISOString());
     expect(preview.isValid).toBe(true);
     expect(preview.displayValues.mujer_cabeza_hogar).toBe("No");
+  });
+
+  it("importa area_arbol_disponible como Si/No con flexibilidad (columna Excel ~49)", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Con árbol";
+    row[48] = "  NO APLICA  ";
+    row[29] = "-74.0";
+    row[33] = "4.0";
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "u");
+    expect(errors).toHaveLength(0);
+    expect(ok[0].datos_formulario.area_arbol_disponible).toBe("No");
   });
 });

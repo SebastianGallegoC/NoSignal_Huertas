@@ -850,14 +850,14 @@ export const FormulariosDiligenciadosPage = () => {
   }, [online, modalEliminarTodasPrecargas]);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-4 py-10 text-slate-900">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#e2f2ee_0,_#f6f7f5_45%,_#f6f7f5_100%)] px-3 py-6 text-slate-900 sm:px-4 sm:py-10">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <header className="mb-4 flex flex-col gap-2 sm:mb-6 sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.35em] text-teal-700">
               NoSignal
             </p>
-            <h1 className="mt-2 text-3xl font-semibold">
+            <h1 className="mt-1 text-2xl font-semibold sm:mt-2 sm:text-3xl">
               Formularios diligenciados
             </h1>
           </div>
@@ -977,7 +977,7 @@ export const FormulariosDiligenciadosPage = () => {
             filtros».
           </div>
         ) : (
-          <div className="space-y-3">
+          <div className="space-y-2 sm:space-y-3">
             {rowsFiltrados.map((row) => {
               const isOpen = selectedId === row.id_formulario;
               const h = row.historial;
@@ -1003,79 +1003,79 @@ export const FormulariosDiligenciadosPage = () => {
               return (
                 <article
                   key={row.id_formulario}
-                  className={`overflow-hidden rounded-2xl border bg-white/90 shadow-sm transition-shadow ${
+                  className={`overflow-hidden rounded-xl border bg-white/90 shadow-sm transition-shadow sm:rounded-2xl ${
                     isOpen
                       ? "border-teal-400 ring-2 ring-teal-200"
                       : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  <div className="flex items-stretch gap-2 p-2 sm:gap-3 sm:p-3">
+                  <div className="flex items-stretch gap-1.5 p-1.5 sm:gap-3 sm:p-3">
                     <button
                       type="button"
                       onClick={() => toggleOrSelectRow(row)}
-                      className="flex min-w-0 flex-1 items-start justify-between gap-3 rounded-xl p-2 text-left sm:p-3"
+                      className="flex min-w-0 flex-1 items-start justify-between gap-2 rounded-lg p-1.5 text-left sm:gap-3 sm:rounded-xl sm:p-3"
                     >
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
+                      <div className="min-w-0 flex-1 space-y-0.5 sm:space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                           {row.onServer ? (
-                            <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-900">
+                            <span className="rounded bg-emerald-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-emerald-900 sm:rounded-md sm:px-2 sm:py-0.5 sm:text-[10px]">
                               Servidor
                             </span>
                           ) : null}
                           {row.precargaSolo ? (
-                            <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
+                            <span className="rounded bg-indigo-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-indigo-900 sm:rounded-md sm:px-2 sm:py-0.5 sm:text-[10px]">
                               Precarga offline
                             </span>
                           ) : null}
                           {!row.onServer && !row.precargaSolo ? (
-                            <span className="rounded-md bg-slate-200 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-800">
+                            <span className="rounded bg-slate-200 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-slate-800 sm:rounded-md sm:px-2 sm:py-0.5 sm:text-[10px]">
                               Solo este equipo
                             </span>
                           ) : null}
                           {precargado ? (
-                            <span className="rounded-md bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
+                            <span className="rounded bg-indigo-100 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-indigo-900 sm:rounded-md sm:px-2 sm:py-0.5 sm:text-[10px]">
                               Precargado
                             </span>
                           ) : null}
                           <span
-                            className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${DETAIL_SOURCE_COLOR[effectiveDetailSource]}`}
+                            className={`rounded px-1.5 py-px text-[9px] font-semibold sm:rounded-md sm:px-2 sm:py-0.5 sm:text-[10px] ${DETAIL_SOURCE_COLOR[effectiveDetailSource]}`}
                             title="Fuente usada para el detalle del formulario al expandir"
                           >
                             Origen: {DETAIL_SOURCE_LABEL[effectiveDetailSource]}
                           </span>
                         </div>
-                        <p className="font-medium text-slate-900">
+                        <p className="text-sm font-medium leading-snug text-slate-900 sm:text-base sm:leading-normal">
                           Beneficiario: {tituloUsuario}
                         </p>
-                        <p className="text-sm text-slate-600">
+                        <p className="text-xs leading-snug text-slate-600 sm:text-sm sm:leading-normal">
                           Fecha de envío del formulario: {tituloFechaLabel}
                         </p>
-                        <p className="text-sm text-slate-600">
+                        <p className="text-xs leading-snug text-slate-600 sm:text-sm sm:leading-normal">
                           Última actualización: {ultimaActualizacionLabel}
                         </p>
                         {h ? (
                           <p
-                            className={`text-sm font-semibold ${estadoClass[h.estado]}`}
+                            className={`text-xs font-semibold leading-snug sm:text-sm sm:leading-normal ${estadoClass[h.estado]}`}
                           >
                             Estado en este dispositivo: {h.estado}
                           </p>
                         ) : row.onServer ? (
-                          <p className="text-sm font-semibold text-emerald-700">
+                          <p className="text-xs font-semibold leading-snug text-emerald-700 sm:text-sm sm:leading-normal">
                             Sincronizado en servidor
                           </p>
                         ) : row.precargaSolo ? (
-                          <p className="text-sm font-semibold text-indigo-800">
+                          <p className="text-xs font-semibold leading-snug text-indigo-800 sm:text-sm sm:leading-normal">
                             Copia guardada en este dispositivo para uso sin red
                           </p>
                         ) : null}
                         {h?.ultimo_error ? (
-                          <p className="text-sm text-rose-700">
+                          <p className="text-xs leading-snug text-rose-700 sm:text-sm sm:leading-normal">
                             Error: {h.ultimo_error}
                           </p>
                         ) : null}
                       </div>
                       <span
-                        className={`mt-1 shrink-0 rounded-lg border px-2 py-1 text-xs font-medium ${
+                        className={`mt-0.5 shrink-0 self-start rounded-md border px-1.5 py-0.5 text-[11px] font-medium sm:mt-1 sm:rounded-lg sm:px-2 sm:py-1 sm:text-xs ${
                           isOpen
                             ? "border-teal-600 bg-teal-50 text-teal-800"
                             : "border-slate-200 bg-slate-50 text-slate-600"
@@ -1087,6 +1087,7 @@ export const FormulariosDiligenciadosPage = () => {
                     <Button
                       type="button"
                       variant="outline"
+                      size="sm"
                       disabled={!online || eliminandoId === row.id_formulario}
                       title={
                         !online ? "Requiere conexión a internet" : undefined
@@ -1095,20 +1096,20 @@ export const FormulariosDiligenciadosPage = () => {
                         e.stopPropagation();
                         solicitarEliminar(row);
                       }}
-                      className="shrink-0 self-center border-rose-200 text-rose-800 hover:bg-rose-50"
+                      className="h-8 shrink-0 self-center border-rose-200 px-2 text-xs text-rose-800 hover:bg-rose-50 sm:h-9 sm:px-3 sm:text-sm"
                     >
                       {eliminandoId === row.id_formulario ? "…" : "Eliminar"}
                     </Button>
                   </div>
 
                   {isOpen ? (
-                    <div className="border-t border-slate-200 bg-[linear-gradient(180deg,_#fafcfb_0%,_#fff_12%)] px-4 py-5">
+                    <div className="border-t border-slate-200 bg-[linear-gradient(180deg,_#fafcfb_0%,_#fff_12%)] px-3 py-3 sm:px-4 sm:py-5">
                       {detailLoading ? (
                         <p className="text-center text-sm text-slate-600">
                           Cargando…
                         </p>
                       ) : detailSnapshot ? (
-                        <div className="space-y-4">
+                        <div className="space-y-3 sm:space-y-4">
                           <div className="flex items-center justify-end">
                             <span
                               className={`rounded-md px-2 py-1 text-xs font-semibold ${DETAIL_SOURCE_COLOR[effectiveDetailSource]}`}
@@ -1120,7 +1121,7 @@ export const FormulariosDiligenciadosPage = () => {
                           <FormularioRespuestaReadOnly
                             snapshot={detailSnapshot}
                           />
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                             {(() => {
                               const fotosDetalle =
                                 detailPrecarga?.fotos ??

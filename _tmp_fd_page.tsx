@@ -8,6 +8,11 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 
 import { ConfirmDeleteFormModal } from "@/components/ConfirmDeleteFormModal";
+import {
+  agentSessionLog,
+  beneficiaryFieldProbe,
+  idSuffix,
+} from "@/debug/agentSessionLog";
 import type { FormularioSnapshot } from "@/components/form/FormularioRespuestaReadOnly";
 import { Button } from "@/components/ui/button";
 import { ACCESS_TOKEN_KEY } from "@/lib/authStorage";
@@ -17,25 +22,29 @@ import {
 } from "@/lib/formatDateTime";
 import {
   deleteFormFromApi,
-  fetchFormPhotoDataUrl,
   loginApi,
   listFormsFromApi,
   type FormReadItem,
 } from "@/services/api";
 import { saveFormDraft, type FormDraftV1 } from "@/services/formDraftStorage";
-import { db, type FotoForm, type PrecargaForm } from "@/services/db";
+import {
+  db,
+  type FotoForm,
+  type HistorialForm,
+  type PrecargaForm,
+} from "@/services/db";
 import {
   clearAllPrecargas,
   eliminarCopiaLocalFormulario,
   eliminarFormularioDeDispositivo,
   loadHiddenFormIds,
 } from "@/services/formLocalDelete";
+import { isNetworkLikeError } from "@/services/sync";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import {
   buildFormValuesFromSnapshot,
   getBeneficiarioDisplayName,
   getFechaReferenciaEnvio,
-  mapServerFotos,
   mergeFormsWithPrecargas,
   normalizeTextoBusqueda,
   reconcileLocalStateWithTrustedServerList,
@@ -46,17 +55,12 @@ import {
 } from "@/services/formHistory";
 import { useAuthStore } from "@/store/useAuthStore";
 import {
-  DETAIL_SOURCE_COLOR,
-  DETAIL_SOURCE_LABEL,
-  estadoClass,
-  fotosConVisitaDesdeDetalle,
-  hydrateFotosFromServerIfNeeded,
   previewDetailSourceForRow,
   type DetailSourceKind,
 } from "@/pages/formulariosDiligenciados/helpers";
 import { FiltersPanel } from "@/pages/formulariosDiligenciados/FiltersPanel";
 import { StatusBanners } from "@/pages/formulariosDiligenciados/StatusBanners";
-import { FormularioRespuestaReadOnly } from "@/components/form/FormularioRespuestaReadOnly";
+import { FormRowCard } from "@/pages/formulariosDiligenciados/FormRowCard";
 import { useFormExports } from "@/pages/formulariosDiligenciados/useFormExports";
 
 // Helpers moved to pages/formulariosDiligenciados/helpers.ts
@@ -116,235 +120,53 @@ export const FormulariosDiligenciadosPage = () => {
   const [eliminandoTodasPrecargas, setEliminandoTodasPrecargas] =
     useState(false);
 
-  const precargaMap = useMemo(() => {
-    const m = new Map<string, PrecargaForm>();
-    for (const p of precargas) {
-      m.set(p.id_formulario, p);
-    }
-    return m;
-  }, [precargas]);
-
-  const rowsFiltrados = useMemo(() => {
-    const q = normalizeTextoBusqueda(filtroBeneficiario);
-    const inicio = filtroDesde
-      ? parseFiltroDiaInicio(filtroDesde)
-      : Number.NaN;
-    const fin = filtroHasta ? parseFiltroDiaFin(filtroHasta) : Number.NaN;
-    return rows.filter((r) => {
-      if (q) {
-        const nombre = normalizeTextoBusqueda(getBeneficiarioDisplayName(r));
-        if (!nombre.includes(q)) {
-          return false;
-        }
-      }
-      if (!Number.isNaN(inicio) || !Number.isNaN(fin)) {
-        const ref = getFechaReferenciaEnvio(r);
-        if (Number.isNaN(ref)) {
-          return false;
-        }
-        if (!Number.isNaN(inicio) && ref < inicio) {
-          return false;
-        }
-        if (!Number.isNaN(fin) && ref > fin) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [rows, filtroBeneficiario, filtroDesde, filtroHasta]);
-
-  const loadList = useCallback(async (): Promise<DisplayRow[]> => {
-    setRemoteError(null);
-
-    const precargasLocal = await db.precargas.toArray();
-    const historialLocal = await db.historialFormularios.toArray();
-
-    const token =
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem(ACCESS_TOKEN_KEY)
-        : null;
-
-    if (!token) {
-      setRemoteLoaded(false);
-      setPrecargas(precargasLocal);
-      const mergedLocal = mergeFormsWithPrecargas(
-        [],
-        historialLocal,
-        precargasLocal,
-      );
-      setRows(mergedLocal);
-      return mergedLocal;
-    }
-
-    let visibleServerItems: FormReadItem[] = [];
-    try {
-      const serverItems = await listFormsFromApi(500);
-      const hiddenIds = await loadHiddenFormIds();
-      visibleServerItems = serverItems.filter(
-        (it) => !hiddenIds.has(it.id_formulario),
-      );
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (/\b401\b|forms_list_401/i.test(msg)) {
-        navigate("/login", { replace: true });
-        return [];
-      }
-      setRemoteError(msg);
-      setRemoteLoaded(true);
-      setPrecargas(precargasLocal);
-      const mergedOffline = mergeFormsWithPrecargas(
-        [],
-        historialLocal,
-        precargasLocal,
-      );
-      setRows(mergedOffline);
-      return mergedOffline;
-    }
-
-    const reconciled = reconcileLocalStateWithTrustedServerList(
-      historialLocal,
-      visibleServerItems,
-      precargasLocal,
-    );
-
-    await Promise.all([
-      ...reconciled.staleEnviadoIds.map((id) =>
-        db.historialFormularios.delete(id).catch(() => undefined),
-      ),
-      ...reconciled.orphanPrecargaIds.map((id) =>
-        db.precargas.delete(id).catch(() => undefined),
-      ),
-    ]);
-
-    const precargasFresh = await db.precargas.toArray();
-    const historialFresh = await db.historialFormularios.toArray();
-
-    setPrecargas(precargasFresh);
-    const merged = mergeFormsWithPrecargas(
-      visibleServerItems,
-      historialFresh,
-      precargasFresh,
-    );
-    setRows(merged);
-    setRemoteLoaded(true);
-    return merged;
-  }, [navigate]);
-
-  useEffect(() => {
-    void loadList();
-  }, [loadList]);
-
-  useEffect(() => {
-    if (!selectedId) {
-      return;
-    }
-    const stillExists = rowsFiltrados.some((r) => r.id_formulario === selectedId);
-    if (!stillExists) {
-      setSelectedId(null);
-      setDetailSnapshot(null);
-      setDetailSource(null);
-      setDetailPrecarga(null);
-    }
-  }, [rowsFiltrados, selectedId]);
-
-  const selectRow = useCallback(
-    async (row: DisplayRow, opts?: { refreshOnly?: boolean }) => {
-      const refreshOnly = opts?.refreshOnly === true;
-      if (!refreshOnly) {
-        setSelectedId(row.id_formulario);
-        setDetailSnapshot(null);
-        setDetailSource(null);
-        setDetailPrecarga(null);
-      }
-      setDetailLoading(true);
-      try {
-        const precargaLocal =
-          precargaMap.get(row.id_formulario) ?? row.precargaSolo ?? null;
-
-        const queued = await db.formularios.get(row.id_formulario);
-        if (queued) {
-          setDetailPrecarga(precargaLocal);
-          setDetailSnapshot({
-            datos_formulario: queued.datos_formulario ?? {},
-            gps: queued.gps ?? null,
-            fotos: queued.fotos ?? [],
-          });
-          setDetailSource("live");
-          return;
-        }
-
-        if (row.server) {
-          setDetailPrecarga(precargaLocal);
-          const baseFotos = mapServerFotos(
-            row.server.id_formulario,
-            row.server.fotos ?? [],
-          );
-          const fotos: FotoForm[] = [];
-          for (const foto of baseFotos) {
-            if (foto.serverFormId == null || foto.serverIndex == null) {
-              continue;
-            }
-            try {
-              const data = await fetchFormPhotoDataUrl(
-                foto.serverFormId,
-                foto.serverIndex,
+              const precargaFechaLabel = precarga?.fecha_precarga
+                ? formatDateTimeNoSeconds(
+                    Date.parse(precarga.fecha_precarga ?? ""),
+                  )
+                : null;
+              return (
+                <FormRowCard
+                  key={row.id_formulario}
+                  row={row}
+                  isOpen={isOpen}
+                  online={online}
+                  eliminandoId={eliminandoId}
+                  precarga={precarga}
+                  precargaFechaLabel={precargaFechaLabel}
+                  tituloUsuario={tituloUsuario}
+                  tituloFechaLabel={tituloFechaLabel}
+                  ultimaActualizacionLabel={ultimaActualizacionLabel}
+                  historial={h ?? null}
+                  effectiveDetailSource={effectiveDetailSource}
+                  detailLoading={detailLoading}
+                  detailSnapshot={detailSnapshot}
+                  detailPrecarga={detailPrecarga}
+                  precargaLoadingId={precargaLoadingId}
+                  eliminandoPrecargaId={eliminandoPrecargaId}
+                  descargandoExcelId={descargandoExcelId}
+                  descargandoFotosId={descargandoFotosId}
+                  descargaExcelError={descargaExcelError}
+                  descargaFotosError={descargaFotosError}
+                  selectedId={selectedId}
+                  onSelectRow={selectRow}
+                  onSolicitarEliminar={solicitarEliminar}
+                  onPrecargarRow={precargarRow}
+                  onEliminarPrecargaRow={eliminarPrecargaRow}
+                  onUsarComoBase={usarComoBase}
+                  onDescargarExcelDelRegistro={descargarExcelDelRegistro}
+                  onDescargarFotosDelRegistro={descargarFotosDelRegistro}
+                />
               );
-              fotos.push({
-                nombre_archivo: foto.nombre_archivo,
-                data,
-                ...(foto.visita === 1 || foto.visita === 2 || foto.visita === 3
-                  ? { visita: foto.visita }
-                  : {}),
-              });
-            } catch {
-              // omitimos fotos que fallen al descargar
-            }
-          }
-          setDetailSnapshot({
-            datos_formulario: (row.server.datos_formulario ?? {}) as Record<
-              string,
-              unknown
-            >,
-            gps: {
-              latitud: row.server.latitud,
-              longitud: row.server.longitud,
-              precision: row.server.precision ?? null,
-            },
-            fotos,
-          });
-          setDetailSource("server");
-          return;
-        }
-
-        if (precargaLocal) {
-          setDetailPrecarga(precargaLocal);
-          setDetailSnapshot(precargaToSnapshot(precargaLocal));
-          setDetailSource("precarga");
-          return;
-        }
-
-        if (row.historial) {
-          setDetailPrecarga(precargaLocal);
-          const h = row.historial;
-          let fotos = fotosConVisitaDesdeDetalle(h.fotos ?? []);
-          fotos = await hydrateFotosFromServerIfNeeded(row, fotos);
-          setDetailSnapshot({
-            datos_formulario: h.datos_formulario ?? {},
-            gps: h.gps ?? null,
-            fotos,
-          });
-          setDetailSource("historial");
-          return;
-        }
-
-        setDetailSnapshot(null);
-        setDetailSource(null);
-        setDetailPrecarga(null);
-      } finally {
-        setDetailLoading(false);
+          datos_formulario: live.datos_formulario ?? {},
+          gps: live.gps,
+          fotos: live.fotos ?? [],
+        });
+        setDetailSource("live");
       }
+      setDetailLoading(false);
     },
-    [precargaMap],
+    [selectedId],
   );
 
   const precargarRow = useCallback(
@@ -354,7 +176,7 @@ export const FormulariosDiligenciadosPage = () => {
       }
       setPrecargaError(null);
       if (!navigator.onLine) {
-        setPrecargaError("Necesitás conexión para precargar este formulario.");
+        setPrecargaError("Necesit├ís conexi├│n para precargar este formulario.");
         return;
       }
       const token =
@@ -362,7 +184,7 @@ export const FormulariosDiligenciadosPage = () => {
           ? localStorage.getItem(ACCESS_TOKEN_KEY)
           : null;
       if (!token) {
-        setPrecargaError("Iniciá sesión para precargar formularios.");
+        setPrecargaError("Inici├í sesi├│n para precargar formularios.");
         return;
       }
       if (!row.server && !row.historial) {
@@ -498,7 +320,7 @@ export const FormulariosDiligenciadosPage = () => {
       }
       if (!navigator.onLine) {
         setPrecargaError(
-          "Necesitás conexión para eliminar la copia local de este formulario.",
+          "Necesit├ís conexi├│n para eliminar la copia local de este formulario.",
         );
         return;
       }
@@ -544,7 +366,7 @@ export const FormulariosDiligenciadosPage = () => {
     }
     if (!navigator.onLine) {
       setPrecargaError(
-        "Necesitás conexión a internet para quitar las precargas.",
+        "Necesit├ís conexi├│n a internet para quitar las precargas.",
       );
       setModalEliminarTodasPrecargas(false);
       return;
@@ -657,7 +479,7 @@ export const FormulariosDiligenciadosPage = () => {
     setDeletePasswordError(null);
     if (!navigator.onLine) {
       setEliminarError(
-        "Solo podés eliminar formularios con conexión a internet.",
+        "Solo pod├®s eliminar formularios con conexi├│n a internet.",
       );
       return;
     }
@@ -674,12 +496,12 @@ export const FormulariosDiligenciadosPage = () => {
       setDeletePasswordError(null);
       const pass = password.trim();
       if (!pass) {
-        setDeletePasswordError("Ingresá tu contraseña para continuar.");
+        setDeletePasswordError("Ingres├í tu contrase├▒a para continuar.");
         return;
       }
       if (!navigator.onLine) {
         setEliminarError(
-          "Perdiste la conexión. Volvé a conectarte para eliminar.",
+          "Perdiste la conexi├│n. Volv├® a conectarte para eliminar.",
         );
         return;
       }
@@ -689,14 +511,14 @@ export const FormulariosDiligenciadosPage = () => {
           : null;
       if (!authUsername) {
         setDeletePasswordError(
-          "No hay una sesión activa para validar contraseña.",
+          "No hay una sesi├│n activa para validar contrase├▒a.",
         );
         return;
       }
       try {
         await loginApi(authUsername, pass);
       } catch {
-        setDeletePasswordError("Contraseña incorrecta.");
+        setDeletePasswordError("Contrase├▒a incorrecta.");
         return;
       }
       const puedeBorrarEnServidor = row.onServer && !!token;
@@ -754,12 +576,12 @@ export const FormulariosDiligenciadosPage = () => {
       return (
         <>
           <p>
-            Este formulario está guardado en el servidor. Con tu sesión activa
-            también se borrará allí la base de datos y las fotos asociadas.
+            Este formulario est├í guardado en el servidor. Con tu sesi├│n activa
+            tambi├®n se borrar├í all├¡ la base de datos y las fotos asociadas.
           </p>
           <p className="mt-2">
-            Además se quita la copia local (historial, precarga y cola) en este
-            equipo. Esta acción no se puede deshacer.
+            Adem├ís se quita la copia local (historial, precarga y cola) en este
+            equipo. Esta acci├│n no se puede deshacer.
           </p>
         </>
       );
@@ -767,13 +589,13 @@ export const FormulariosDiligenciadosPage = () => {
     return (
       <>
         <p>
-          Solo se quitará la copia en este equipo (historial, precarga y
+          Solo se quitar├í la copia en este equipo (historial, precarga y
           formularios en cola).
         </p>
         <p className="mt-2">
           {pendingDeleteRow.onServer
-            ? "Para borrar también en el servidor iniciá sesión y repetí la eliminación."
-            : "Esta acción no se puede deshacer."}
+            ? "Para borrar tambi├®n en el servidor inici├í sesi├│n y repet├¡ la eliminaci├│n."
+            : "Esta acci├│n no se puede deshacer."}
         </p>
       </>
     );
@@ -840,11 +662,11 @@ export const FormulariosDiligenciadosPage = () => {
                 eliminandoTodasPrecargas ||
                 eliminandoPrecargaId !== null
               }
-              title={!online ? "Requiere conexión a internet" : undefined}
+              title={!online ? "Requiere conexi├│n a internet" : undefined}
               className="w-full border-amber-200 text-amber-950 hover:bg-amber-50 sm:w-auto"
             >
               {eliminandoTodasPrecargas
-                ? "Quitando precargas…"
+                ? "Quitando precargasÔÇª"
                 : precargas.length === 0
                   ? "Quitar todas las precargas"
                   : `Quitar todas las precargas (${precargas.length})`}
@@ -857,7 +679,7 @@ export const FormulariosDiligenciadosPage = () => {
               className="w-full sm:w-auto"
             >
               {descargandoTodosExcel
-                ? "Descargando Excel (todos)…"
+                ? "Descargando Excel (todos)ÔÇª"
                 : "Descargar Excel de todos"}
             </Button>
             <Button
@@ -868,7 +690,7 @@ export const FormulariosDiligenciadosPage = () => {
               className="w-full sm:w-auto"
             >
               {descargandoTodasFotos
-                ? "Descargando fotos (todos)…"
+                ? "Descargando fotos (todos)ÔÇª"
                 : "Descargar Fotos de todos"}
             </Button>
             <Link
@@ -922,13 +744,13 @@ export const FormulariosDiligenciadosPage = () => {
         {rows.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
             No hay registros en el historial local ni en el servidor (con tu
-            sesión actual).
+            sesi├│n actual).
           </div>
         ) : rowsFiltrados.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
-            Ningún registro coincide con los filtros (nombre del beneficiario o
-            rango de fechas). Prueba otro texto, ampliar fechas o usar «Limpiar
-            filtros».
+            Ning├║n registro coincide con los filtros (nombre del beneficiario o
+            rango de fechas). Prueba otro texto, ampliar fechas o usar ┬½Limpiar
+            filtros┬╗.
           </div>
         ) : (
           <div className="space-y-3">
@@ -1002,10 +824,10 @@ export const FormulariosDiligenciadosPage = () => {
                           Beneficiario: {tituloUsuario}
                         </p>
                         <p className="text-sm text-slate-600">
-                          Fecha de envío del formulario: {tituloFechaLabel}
+                          Fecha de env├¡o del formulario: {tituloFechaLabel}
                         </p>
                         <p className="text-sm text-slate-600">
-                          Última actualización: {ultimaActualizacionLabel}
+                          ├Ültima actualizaci├│n: {ultimaActualizacionLabel}
                         </p>
                         {h ? (
                           <p
@@ -1043,7 +865,7 @@ export const FormulariosDiligenciadosPage = () => {
                       variant="outline"
                       disabled={!online || eliminandoId === row.id_formulario}
                       title={
-                        !online ? "Requiere conexión a internet" : undefined
+                        !online ? "Requiere conexi├│n a internet" : undefined
                       }
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1051,7 +873,7 @@ export const FormulariosDiligenciadosPage = () => {
                       }}
                       className="shrink-0 self-center border-rose-200 text-rose-800 hover:bg-rose-50"
                     >
-                      {eliminandoId === row.id_formulario ? "…" : "Eliminar"}
+                      {eliminandoId === row.id_formulario ? "ÔÇª" : "Eliminar"}
                     </Button>
                   </div>
 
@@ -1059,7 +881,7 @@ export const FormulariosDiligenciadosPage = () => {
                     <div className="border-t border-slate-200 bg-[linear-gradient(180deg,_#fafcfb_0%,_#fff_12%)] px-4 py-5">
                       {detailLoading ? (
                         <p className="text-center text-sm text-slate-600">
-                          Cargando…
+                          CargandoÔÇª
                         </p>
                       ) : detailSnapshot ? (
                         <div className="space-y-4">
@@ -1123,7 +945,7 @@ export const FormulariosDiligenciadosPage = () => {
                                     >
                                       {eliminandoPrecargaId ===
                                       row.id_formulario
-                                        ? "Eliminando…"
+                                        ? "EliminandoÔÇª"
                                         : precargaMap.has(row.id_formulario)
                                           ? "Eliminar precarga"
                                           : "Eliminar datos locales"}
@@ -1149,7 +971,7 @@ export const FormulariosDiligenciadosPage = () => {
                                     }
                                   >
                                     {descargandoExcelId === row.id_formulario
-                                      ? "Descargando Excel…"
+                                      ? "Descargando ExcelÔÇª"
                                       : "Descargar Excel"}
                                   </Button>
                                   <Button
@@ -1164,7 +986,7 @@ export const FormulariosDiligenciadosPage = () => {
                                     }
                                   >
                                     {descargandoFotosId === row.id_formulario
-                                      ? "Descargando fotos…"
+                                      ? "Descargando fotosÔÇª"
                                       : "Descargar fotos"}
                                   </Button>
                                 </>
@@ -1196,7 +1018,7 @@ export const FormulariosDiligenciadosPage = () => {
                           ) : null}
                           {precargaLoadingId === row.id_formulario ? (
                             <p className="text-xs text-slate-500">
-                              Precargando datos para uso offline…
+                              Precargando datos para uso offlineÔÇª
                             </p>
                           ) : null}
                         </div>
@@ -1237,13 +1059,13 @@ export const FormulariosDiligenciadosPage = () => {
               id="eliminar-todas-precargas-title"
               className="text-lg font-semibold text-slate-900"
             >
-              ¿Quitar todas las copias precargadas?
+              ┬┐Quitar todas las copias precargadas?
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-slate-600">
-              Se eliminarán <strong>{precargas.length}</strong> precarga
+              Se eliminar├ín <strong>{precargas.length}</strong> precarga
               {precargas.length === 1 ? "" : "s"} guardada
               {precargas.length === 1 ? "" : "s"} en este dispositivo para uso
-              sin conexión. El historial local y los datos en servidor no se
+              sin conexi├│n. El historial local y los datos en servidor no se
               modifican.
             </p>
             <div className="mt-6 flex flex-wrap justify-end gap-2">
@@ -1261,7 +1083,7 @@ export const FormulariosDiligenciadosPage = () => {
                 disabled={eliminandoTodasPrecargas || precargas.length === 0}
                 onClick={() => void confirmarEliminarTodasPrecargas()}
               >
-                {eliminandoTodasPrecargas ? "Quitando…" : "Sí, quitar todas"}
+                {eliminandoTodasPrecargas ? "QuitandoÔÇª" : "S├¡, quitar todas"}
               </Button>
             </div>
           </div>
@@ -1270,7 +1092,7 @@ export const FormulariosDiligenciadosPage = () => {
 
       <ConfirmDeleteFormModal
         open={!!pendingDeleteRow}
-        title="¿Eliminar este formulario?"
+        title="┬┐Eliminar este formulario?"
         description={deleteModalDescription}
         passwordError={deletePasswordError}
         onCancel={cancelarEliminacionPendiente}

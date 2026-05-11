@@ -6,6 +6,9 @@ import { usePwaRegister } from "@/hooks/usePwaRegister";
 const UPDATE_PROMPT_SUPPRESS_KEY = "nosignal:pwa:update-clicked-at";
 const UPDATE_PROMPT_SUPPRESS_MS = 3 * 60 * 1000;
 
+/** Marca que el usuario (o cold-start) pidió activar el SW nuevo; `controllerchange` recarga al tomar control. */
+export const PENDING_SW_RELOAD_KEY = "nosignal:pending-sw-reload";
+
 /**
  * Ventana desde el primer montaje para auto-actualizar sin modal.
  * En móvil/PWA suele tardar varios segundos en detectar el SW nuevo; 5s era corto.
@@ -20,6 +23,9 @@ export function shouldBlockPwaAutoReload(pathname: string): boolean {
     return true;
   }
   if (pathname === "/formularios" || pathname.startsWith("/formularios-diligenciados")) {
+    return true;
+  }
+  if (pathname === "/importar-formularios") {
     return true;
   }
   return false;
@@ -52,6 +58,38 @@ export const ReloadPrompt = () => {
 
   const mountedAtRef = useRef(Date.now());
   const coldStartTriggeredRef = useRef(false);
+  const reloadOnceRef = useRef(false);
+
+  const reloadOnce = useCallback(() => {
+    if (reloadOnceRef.current) {
+      return;
+    }
+    reloadOnceRef.current = true;
+    window.location.reload();
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+      return;
+    }
+    const onControllerChange = () => {
+      try {
+        if (window.sessionStorage.getItem(PENDING_SW_RELOAD_KEY) !== "1") {
+          return;
+        }
+        window.sessionStorage.removeItem(PENDING_SW_RELOAD_KEY);
+        reloadOnce();
+      } catch {
+        reloadOnce();
+      }
+    };
+    navigator.serviceWorker.addEventListener("controllerchange", onControllerChange);
+    return () =>
+      navigator.serviceWorker.removeEventListener(
+        "controllerchange",
+        onControllerChange,
+      );
+  }, [reloadOnce]);
 
   useEffect(() => {
     if (!needRefresh) {
@@ -59,6 +97,7 @@ export const ReloadPrompt = () => {
       setAutoApplying(false);
       setPromptDismissed(false);
       coldStartTriggeredRef.current = false;
+      reloadOnceRef.current = false;
       try {
         window.sessionStorage.removeItem(UPDATE_PROMPT_SUPPRESS_KEY);
       } catch {
@@ -79,18 +118,28 @@ export const ReloadPrompt = () => {
       // ignore
     }
     try {
+      try {
+        window.sessionStorage.setItem(PENDING_SW_RELOAD_KEY, "1");
+      } catch {
+        // ignore
+      }
       await updateServiceWorker(true);
     } catch {
+      try {
+        window.sessionStorage.removeItem(PENDING_SW_RELOAD_KEY);
+      } catch {
+        // ignore
+      }
       // Safari iOS en modo standalone puede ignorar el flujo del plugin.
     } finally {
       window.setTimeout(() => {
         if (document.visibilityState === "visible") {
-          window.location.reload();
+          reloadOnce();
         }
       }, 900);
       window.setTimeout(() => setIsUpdating(false), 1800);
     }
-  }, [updateServiceWorker]);
+  }, [reloadOnce, updateServiceWorker]);
 
   useLayoutEffect(() => {
     if (!needRefresh || coldStartTriggeredRef.current) {

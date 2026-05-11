@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   COLD_START_UPDATE_WINDOW_MS,
+  PENDING_SW_RELOAD_KEY,
   ReloadPrompt,
 } from "@/components/ReloadPrompt";
 
@@ -171,5 +172,29 @@ describe("ReloadPrompt", () => {
     await renderPrompt();
     expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
     expect(container?.textContent ?? "").toContain("Actualizar ahora");
+  });
+
+  it("no auto-aplica en /importar-formularios (muestra modal)", async () => {
+    routerMock.pathname = "/importar-formularios";
+    pwaMock.needRefresh = true;
+    await renderPrompt();
+    expect(mockUpdateServiceWorker).not.toHaveBeenCalled();
+    expect(container?.textContent ?? "").toContain("Actualizar ahora");
+  });
+
+  it("marca sessionStorage antes de updateServiceWorker al actualizar", async () => {
+    pwaMock.needRefresh = false;
+    await renderPrompt();
+    await act(async () => {
+      vi.advanceTimersByTime(COLD_START_UPDATE_WINDOW_MS + 1);
+    });
+    pwaMock.needRefresh = true;
+    await rerenderPrompt();
+    const button = container?.querySelector("button");
+    await act(async () => {
+      button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    expect(mockUpdateServiceWorker).toHaveBeenCalled();
+    expect(window.sessionStorage.getItem(PENDING_SW_RELOAD_KEY)).toBe("1");
   });
 });

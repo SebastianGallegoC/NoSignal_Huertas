@@ -36,7 +36,8 @@ self.addEventListener('message', (event) => {
 const navigationHandler = createHandlerBoundToURL('/index.html');
 registerRoute(new NavigationRoute(navigationHandler));
 
-const apiCacheName = 'nosignal-api-v1';
+/** Bump al cambiar contrato de respuestas cacheadas (evita JSON viejo tras deploy). */
+const apiCacheName = 'nosignal-api-v2';
 
 registerRoute(
   ({ url, request }) => url.pathname.startsWith('/api/v1/forms') && request.method === 'GET',
@@ -85,7 +86,8 @@ registerRoute(
     url.origin === self.location.origin &&
     ['style', 'script', 'worker'].includes(request.destination),
   new NetworkFirst({
-    cacheName: 'nosignal-static-v3',
+    /** Bump en releases con riesgo de mezcla JS/HTML (fuerza red o nueva entrada de caché). */
+    cacheName: 'nosignal-static-v4',
     networkTimeoutSeconds: 2, // Reduced from 4 to 2 seconds for faster offline fallback
     plugins: [
       new CacheableResponsePlugin({ statuses: [0, 200] }),

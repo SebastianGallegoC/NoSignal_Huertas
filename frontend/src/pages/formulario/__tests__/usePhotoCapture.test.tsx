@@ -187,4 +187,48 @@ describe("usePhotoCapture", () => {
     });
     container.remove();
   });
+
+  it("quitarFoto elimina la foto en el índice indicado", async () => {
+    const setBanner = vi.fn();
+    const setFotos = vi.fn();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let handlers: HookHandlers | null = null;
+
+    const fotosIniciales: FotoForm[] = [
+      { nombre_archivo: "a.jpg", data: "data:1", visita: 1 },
+      { nombre_archivo: "b.jpg", data: "data:2", visita: 1 },
+    ];
+
+    await act(async () => {
+      root.render(
+        <Harness
+          fotos={fotosIniciales}
+          visitaFotoSeleccionada={1}
+          setFotos={setFotos}
+          setBanner={setBanner}
+          onReady={(h) => {
+            handlers = h;
+          }}
+        />,
+      );
+    });
+
+    act(() => {
+      handlers?.quitarFoto(0);
+    });
+
+    expect(setFotos).toHaveBeenCalledTimes(1);
+    const updater = setFotos.mock.calls[0]?.[0];
+    expect(typeof updater).toBe("function");
+    const next = (updater as (prev: FotoForm[]) => FotoForm[])(fotosIniciales);
+    expect(next).toHaveLength(1);
+    expect(next[0]?.nombre_archivo).toBe("b.jpg");
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
 });

@@ -99,3 +99,41 @@ async def test_persist_form_update_usa_fecha_actualizacion_explicita(monkeypatch
 
     assert existing.fecha_hora == datetime(2026, 1, 1, tzinfo=timezone.utc)
     assert existing.fecha_actualizacion == datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
+
+
+@pytest.mark.asyncio
+async def test_persist_form_creates_new_when_id_not_found(monkeypatch):
+    """Si no existe fila con ese id, se delega en create_form (alta nueva)."""
+
+    async def fake_get(_session, _form_id):
+        return None
+
+    monkeypatch.setattr("app.services.forms.get_form_by_id", fake_get)
+
+    created: list = []
+
+    async def fake_create(_session, record):
+        created.append(record)
+        return record
+
+    monkeypatch.setattr("app.services.forms.create_form", fake_create)
+
+    session = AsyncMock()
+    payload = FormPayload(
+        id_formulario="f-nuevo",
+        id_usuario="u-nuevo",
+        fecha_hora="2026-06-01T10:00:00Z",
+        gps=GPSPayload(latitud=4.5, longitud=-74.1, precision=8.0),
+        datos_formulario={"entidad_aportante": "ACME"},
+        fotos=[],
+    )
+
+    result = await persist_form(session, payload)
+
+    assert len(created) == 1
+    assert result is created[0]
+    rec = created[0]
+    assert rec.id_formulario == "f-nuevo"
+    assert rec.id_usuario == "u-nuevo"
+    assert rec.datos_formulario == {"entidad_aportante": "ACME"}
+    assert rec.fotos == []

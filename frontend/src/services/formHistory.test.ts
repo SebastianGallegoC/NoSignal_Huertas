@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { HistorialForm, PrecargaForm } from "@/services/db";
 import {
+  filterDisplayRowsWithPrecarga,
   getBeneficiarioDisplayName,
   mapServerFotos,
   mergeFormsWithPrecargas,
@@ -126,6 +127,45 @@ describe("formHistory — beneficiario", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].id_formulario).toBe("solo-p");
     expect(merged[0].precargaSolo).toEqual(precarga);
+  });
+
+  it("filterDisplayRowsWithPrecarga: offline muestra precarga y cola PENDIENTE/ERROR", () => {
+    const precarga: PrecargaForm = {
+      id_formulario: "con-p",
+      fecha_precarga: "2026-05-02T10:00:00Z",
+      datos_formulario: {},
+    };
+    const historialPendienteSinPrecarga: HistorialForm = {
+      id_formulario: "solo-h",
+      id_usuario: "u",
+      fecha_hora: "2026-01-01T00:00:00Z",
+      estado: "PENDIENTE",
+      datos_formulario: {},
+    };
+    const merged = mergeFormsWithPrecargas(
+      [],
+      [historialPendienteSinPrecarga],
+      [precarga],
+    );
+    expect(merged).toHaveLength(2);
+    const visible = filterDisplayRowsWithPrecarga(merged, [precarga]);
+    expect(visible).toHaveLength(2);
+    expect(new Set(visible.map((r) => r.id_formulario))).toEqual(
+      new Set(["con-p", "solo-h"]),
+    );
+  });
+
+  it("filterDisplayRowsWithPrecarga oculta ENVIADO sin precarga (sin listado servidor)", () => {
+    const historialEnviado: HistorialForm = {
+      id_formulario: "solo-env",
+      id_usuario: "u",
+      fecha_hora: "2026-01-01T00:00:00Z",
+      estado: "ENVIADO",
+      datos_formulario: {},
+    };
+    const merged = mergeFormsWithPrecargas([], [historialEnviado], []);
+    const visible = filterDisplayRowsWithPrecarga(merged, []);
+    expect(visible).toHaveLength(0);
   });
 
   it("reconcileLocalStateWithTrustedServerList quita ENVIADO que ya no está en servidor", () => {

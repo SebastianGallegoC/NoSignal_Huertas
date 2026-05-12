@@ -38,6 +38,7 @@ import {
   getFechaReferenciaEnvio,
   mapServerFotos,
   mergeFormsWithPrecargas,
+  filterDisplayRowsWithPrecarga,
   normalizeTextoBusqueda,
   reconcileLocalStateWithTrustedServerList,
   parseFiltroDiaFin,
@@ -196,9 +197,13 @@ export const FormulariosDiligenciadosPage = () => {
       setRemoteError(msg);
       setRemoteLoaded(true);
       setPrecargas(precargasLocal);
-      const mergedOffline = mergeFormsWithPrecargas(
+      const mergedFull = mergeFormsWithPrecargas(
         [],
         historialLocal,
+        precargasLocal,
+      );
+      const mergedOffline = filterDisplayRowsWithPrecarga(
+        mergedFull,
         precargasLocal,
       );
       setRows(mergedOffline);

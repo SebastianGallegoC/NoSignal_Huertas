@@ -128,6 +128,21 @@ export function mergeFormsWithPrecargas(
   });
 }
 
+/** Sin listado del servidor: precargas locales y borradores pendientes de envío (historial PENDIENTE/ERROR). */
+export function filterDisplayRowsWithPrecarga(
+  rows: DisplayRow[],
+  precargas: PrecargaForm[],
+): DisplayRow[] {
+  const precargaIds = new Set(precargas.map((p) => p.id_formulario));
+  return rows.filter((r) => {
+    if (precargaIds.has(r.id_formulario)) {
+      return true;
+    }
+    const estado = r.historial?.estado;
+    return estado === "PENDIENTE" || estado === "ERROR";
+  });
+}
+
 export function mapServerFotos(
   formId: string,
   raw: unknown,

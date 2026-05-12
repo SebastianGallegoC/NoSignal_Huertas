@@ -84,7 +84,7 @@ export const InicioPage = () => {
             </div>
           </section>
           <h1 className="mt-2 text-3xl font-semibold">
-            Selecciona una opción V.2
+            Selecciona una opción V.1.1
           </h1>
           <p className="mt-2 text-sm text-slate-600">
             Puedes diligenciar un nuevo formulario o revisar los ya registrados.

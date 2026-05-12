@@ -43,7 +43,7 @@ export const StatusBanners = ({
 
       {!online ? (
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50/95 px-4 py-3 text-sm text-slate-800">
-          Sin conexión a internet: no podés eliminar formularios. Volvé a estar
+          Sin conexión a internet: no podés eliminar formularios. Vuelve a estar
           en línea para usar esa opción.
         </div>
       ) : null}

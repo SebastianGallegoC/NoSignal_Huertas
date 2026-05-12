@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { FormReadItem } from "@/services/api";
 import type { HistorialForm, PrecargaForm } from "@/services/db";
 import {
   filterDisplayRowsWithPrecarga,
@@ -8,6 +9,7 @@ import {
   mergeFormsWithPrecargas,
   normalizeTextoBusqueda,
   reconcileLocalStateWithTrustedServerList,
+  rowsForOfflineAwareList,
   type DisplayRow,
 } from "@/services/formHistory";
 
@@ -317,5 +319,94 @@ describe("formHistory — beneficiario", () => {
     expect(merged).toHaveLength(1);
     expect(merged[0].historial).toEqual(h);
     expect(merged[0].precargaSolo).toBeUndefined();
+  });
+});
+
+function itemServidor(id: string): FormReadItem {
+  return {
+    id_formulario: id,
+    id_usuario: "u",
+    fecha_hora: "2026-01-01T00:00:00Z",
+    fecha_actualizacion: "2026-01-01T00:00:00Z",
+    latitud: 0,
+    longitud: 0,
+    precision: 1,
+    datos_formulario: {},
+    fotos: [],
+  };
+}
+
+describe("formHistory — listado según conectividad (Formularios diligenciados)", () => {
+  /** Simula merge tras GET /forms cacheado: varios en servidor + uno en cola local. */
+  const rowsComoListadoCacheado: DisplayRow[] = [
+    { id_formulario: "s1", onServer: true, server: itemServidor("s1") },
+    {
+      id_formulario: "s2",
+      onServer: true,
+      server: itemServidor("s2"),
+      historial: {
+        id_formulario: "s2",
+        id_usuario: "u",
+        fecha_hora: "2026-01-01T00:00:00Z",
+        estado: "ENVIADO",
+        datos_formulario: {},
+      } satisfies HistorialForm,
+    },
+    {
+      id_formulario: "cola",
+      onServer: false,
+      historial: {
+        id_formulario: "cola",
+        id_usuario: "u",
+        fecha_hora: "2026-01-02T00:00:00Z",
+        estado: "PENDIENTE",
+        datos_formulario: {},
+      } satisfies HistorialForm,
+    },
+  ];
+
+  it("rowsForOfflineAwareList con conexión OK deja el merge completo (incluye solo servidor)", () => {
+    const out = rowsForOfflineAwareList(rowsComoListadoCacheado, [], {
+      connectivityOnline: true,
+      navigatorOnLine: true,
+    });
+    expect(out).toHaveLength(3);
+    expect(new Set(out.map((r) => r.id_formulario))).toEqual(
+      new Set(["s1", "s2", "cola"]),
+    );
+  });
+
+  it("rowsForOfflineAwareList con hook offline oculta filas solo servidor / ENVIADO sin precarga", () => {
+    const out = rowsForOfflineAwareList(rowsComoListadoCacheado, [], {
+      connectivityOnline: false,
+      navigatorOnLine: true,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]?.id_formulario).toBe("cola");
+  });
+
+  it("rowsForOfflineAwareList con navigator offline aplica el mismo filtro", () => {
+    const out = rowsForOfflineAwareList(rowsComoListadoCacheado, [], {
+      connectivityOnline: true,
+      navigatorOnLine: false,
+    });
+    expect(out).toHaveLength(1);
+    expect(out[0]?.id_formulario).toBe("cola");
+  });
+
+  it("rowsForOfflineAwareList offline conserva id con precarga aunque también esté en servidor", () => {
+    const prec: PrecargaForm = {
+      id_formulario: "ambos",
+      fecha_precarga: "2026-05-01T12:00:00Z",
+      datos_formulario: {},
+    };
+    const merged = mergeFormsWithPrecargas([itemServidor("ambos")], [], [prec]);
+    const offline = rowsForOfflineAwareList(merged, [prec], {
+      connectivityOnline: false,
+      navigatorOnLine: true,
+    });
+    expect(offline).toHaveLength(1);
+    expect(offline[0]?.id_formulario).toBe("ambos");
+    expect(offline[0]?.onServer).toBe(true);
   });
 });

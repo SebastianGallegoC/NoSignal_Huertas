@@ -74,6 +74,11 @@ export const useConnectivityStatus = (): boolean => {
         return;
       }
 
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        schedule(HEALTH_CHECK_BASE_MS);
+        return;
+      }
+
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         if (active) {
           setIsOnline(false);

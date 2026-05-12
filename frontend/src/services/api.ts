@@ -149,6 +149,7 @@ export const deleteFormFromApi = async (formId: string): Promise<void> => {
 export const listFormsFromApi = async (limit = 200): Promise<FormReadItem[]> => {
   const response = await fetch(`${API_BASE}/api/v1/forms/?limit=${limit}`, {
     headers: { ...authHeaders() },
+    cache: 'no-store',
   });
   if (!response.ok) {
     const t = await response.text();

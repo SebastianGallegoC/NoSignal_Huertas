@@ -40,6 +40,7 @@ import {
   mergeFormsWithPrecargas,
   filterDisplayRowsWithPrecarga,
   normalizeTextoBusqueda,
+  rowsForOfflineAwareList,
   reconcileLocalStateWithTrustedServerList,
   parseFiltroDiaFin,
   parseFiltroDiaInicio,
@@ -131,11 +132,21 @@ export const FormulariosDiligenciadosPage = () => {
     return m;
   }, [precargas]);
 
+  const rowsMostrados = useMemo(
+    () =>
+      rowsForOfflineAwareList(rows, precargas, {
+        connectivityOnline: online,
+        navigatorOnLine:
+          typeof navigator !== "undefined" ? navigator.onLine : true,
+      }),
+    [rows, precargas, online],
+  );
+
   const rowsFiltrados = useMemo(() => {
     const q = normalizeTextoBusqueda(filtroBeneficiario);
     const inicio = filtroDesde ? parseFiltroDiaInicio(filtroDesde) : Number.NaN;
     const fin = filtroHasta ? parseFiltroDiaFin(filtroHasta) : Number.NaN;
-    return rows.filter((r) => {
+    return rowsMostrados.filter((r) => {
       if (q) {
         const nombre = normalizeTextoBusqueda(getBeneficiarioDisplayName(r));
         if (!nombre.includes(q)) {
@@ -156,7 +167,7 @@ export const FormulariosDiligenciadosPage = () => {
       }
       return true;
     });
-  }, [rows, filtroBeneficiario, filtroDesde, filtroHasta]);
+  }, [rowsMostrados, filtroBeneficiario, filtroDesde, filtroHasta]);
 
   const loadList = useCallback(async (): Promise<DisplayRow[]> => {
     setRemoteError(null);
@@ -242,6 +253,14 @@ export const FormulariosDiligenciadosPage = () => {
   useEffect(() => {
     void loadList();
   }, [loadList]);
+
+  const wasOnlineRef = useRef(online);
+  useEffect(() => {
+    if (online && !wasOnlineRef.current) {
+      void loadList();
+    }
+    wasOnlineRef.current = online;
+  }, [online, loadList]);
 
   useEffect(() => {
     if (!selectedId) {
@@ -691,7 +710,7 @@ export const FormulariosDiligenciadosPage = () => {
     descargarExcelDeTodos,
     descargarFotosDeTodos,
   } = useFormExports({
-    rows,
+    rows: rowsMostrados,
     detailSnapshot,
     detailPrecarga,
     setDescargaExcelError,
@@ -944,7 +963,7 @@ export const FormulariosDiligenciadosPage = () => {
           online={online}
         />
 
-        {rows.length > 0 ? (
+        {rowsMostrados.length > 0 ? (
           <FiltersPanel
             filtroBeneficiario={filtroBeneficiario}
             filtroDesde={filtroDesde}
@@ -957,7 +976,7 @@ export const FormulariosDiligenciadosPage = () => {
               setFiltroHasta("");
               setFiltroBeneficiario("");
             }}
-            rowsTotal={rows.length}
+            rowsTotal={rowsMostrados.length}
             rowsFiltered={rowsFiltrados.length}
             hasActiveFilters={
               !!(
@@ -969,7 +988,7 @@ export const FormulariosDiligenciadosPage = () => {
           />
         ) : null}
 
-        {rows.length === 0 ? (
+        {rowsMostrados.length === 0 ? (
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 text-sm text-slate-600 shadow-sm">
             No hay registros en el historial local ni en el servidor (con tu
             sesión actual).

@@ -143,6 +143,24 @@ export function filterDisplayRowsWithPrecarga(
   });
 }
 
+/**
+ * Filas visibles en «Formularios diligenciados» según conectividad.
+ * Si el hook marca sin API o el navegador está offline, se aplica el mismo criterio
+ * que cuando falla el listado del servidor (precargas + historial PENDIENTE/ERROR),
+ * para no listar todo el merge aunque `GET /forms` hubiera venido de caché HTTP.
+ */
+export function rowsForOfflineAwareList(
+  rows: DisplayRow[],
+  precargas: PrecargaForm[],
+  opts: { connectivityOnline: boolean; navigatorOnLine: boolean },
+): DisplayRow[] {
+  const modoOffline = !opts.connectivityOnline || !opts.navigatorOnLine;
+  if (!modoOffline) {
+    return rows;
+  }
+  return filterDisplayRowsWithPrecarga(rows, precargas);
+}
+
 export function mapServerFotos(
   formId: string,
   raw: unknown,

@@ -14,6 +14,37 @@ Traefik está configurado con **provider de archivo** (`traefik/dynamic.yml`), n
 - Docker + Docker Compose
 - Dominio(s) apuntando al servidor (para HTTPS en producción)
 
+## DNS y dominio (evitar `ERR_CONNECTION_REFUSED` / IP equivocada)
+
+El frontend en producción llama al API en la URL fijada al **build** (`VITE_API_URL`). Esa URL debe resolver a la **misma IP pública** del host donde Traefik escucha en **443**.
+
+**Checklist**
+
+1. **Registros A** del dominio raíz (`@`) y del subdominio del API (`api`) → IP pública del VPS (la que devuelve `curl -4 ifconfig.me` en el servidor).
+2. **`VITE_API_URL`** en `.env` debe ser exactamente el origen HTTPS del API (mismo host que las reglas `Host` en `traefik/dynamic.yml`).
+3. Tras **cambiar de servidor o IP**, volvé a hacer `docker compose build --no-cache frontend` (o al menos rebuild del servicio frontend) para embebér la URL correcta en el bundle.
+
+**Namecheap**
+
+En Nameservers elegí **«Namecheap BasicDNS»**, no **«Custom DNS»** aunque pongas manualmente `dns1.registrar-servers.com` / `dns2.registrar-servers.com`. Con *Custom DNS* la pestaña **Advanced DNS** puede quedar sin efecto sobre la zona pública y los resolvers (p. ej. `8.8.8.8`) pueden seguir devolviendo una **IP de parking** distinta de tu VPS. Con *BasicDNS* editás los **Host records** y esa zona es la autoritativa.
+
+**Si el navegador falla pero el stack en el servidor está bien**
+
+```bash
+curl -vk --resolve api.tu-dominio:443:127.0.0.1 https://api.tu-dominio/health
+```
+
+Si eso responde **200** y `curl https://api.tu-dominio/health` no, el problema es **DNS o propagación**, no Docker.
+
+**Comprobar zona vs caché pública** (en el servidor o en tu PC):
+
+```bash
+dig +short @dns1.registrar-servers.com api.tu-dominio A
+dig +short @8.8.8.8 api.tu-dominio A
+```
+
+Cuando el primero ya muestra tu IP y el segundo aún no, es **propagación/TTL**; suele resolverse en minutos u horas. Si el autoritativo (`dns1`) no coincide con lo que configuraste en el panel, revisá el panel o el modo de nameservers.
+
 ## Variables críticas
 Usar `.env` en la raíz (puedes partir de `.env.example`):
 - `JWT_SECRET` (mínimo 32 chars)

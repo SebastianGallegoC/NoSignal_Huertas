@@ -23,6 +23,11 @@ producción usa chmod 600 desde la shell de Linux sobre el volumen si aplica.
 DNS obligatorio: tudominio.com y api.tudominio.com deben apuntar a la IP
 pública del host antes de solicitar certificados.
 
+Namecheap: en el dominio usar "Namecheap BasicDNS" (no "Custom DNS" con
+dns1/dns2 manual), así la zona en Advanced DNS es la que responde Internet;
+si no, el navegador puede resolver otra IP (parking) y ver ERR_CONNECTION_REFUSED
+aunque Traefik en el VPS funcione (comprobar con dig @dns1.registrar-servers.com).
+
 Variables (archivo .env en la raíz; plantilla: .env.example):
 
   NO_SIGNAL_APP_DOMAIN=tudominio.com

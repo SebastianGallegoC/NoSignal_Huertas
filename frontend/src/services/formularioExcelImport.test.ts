@@ -278,4 +278,67 @@ describe("parsePlantillaWorkbook", () => {
     expect(errors).toHaveLength(0);
     expect(ok[0].datos_formulario.telefono).toBe("No tiene");
   });
+
+  it("importa GMS con símbolos ° ′ ″ y deriva GPS si LONGITUD/LATITUD vacías", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Con GMS en Excel";
+    row[26] = "73°";
+    row[27] = "17'";
+    row[28] = `47''`;
+    row[30] = "8°";
+    row[31] = "19'";
+    row[32] = `11''`;
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "u");
+
+    expect(errors).toHaveLength(0);
+    expect(ok).toHaveLength(1);
+    expect(ok[0].datos_formulario.x_grados).toBe("73");
+    expect(ok[0].datos_formulario.x_minutos).toBe("17");
+    expect(ok[0].datos_formulario.x_segundos).toBe("47");
+    expect(ok[0].datos_formulario.y_grados).toBe("8");
+    expect(ok[0].datos_formulario.y_minutos).toBe("19");
+    expect(ok[0].datos_formulario.y_segundos).toBe("11");
+
+    const lonMag = 73 + 17 / 60 + 47 / 3600;
+    const latDec = 8 + 19 / 60 + 11 / 3600;
+    expect(ok[0].gps.longitud).toBeCloseTo(-lonMag, 5);
+    expect(ok[0].gps.latitud).toBeCloseTo(latDec, 5);
+  });
+
+  it("previewPlantillaWorkbook acepta fila GMS con símbolos (vista previa válida)", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Luis GMS";
+    row[26] = "73°";
+    row[27] = "17'";
+    row[28] = `47''`;
+    row[30] = "8°";
+    row[31] = "19'";
+    row[32] = `11''`;
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { rows, errors } = await previewPlantillaWorkbook(buffer, "u");
+
+    expect(errors).toHaveLength(0);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].isValid).toBe(true);
+    expect(rows[0].displayValues.x_grados).toBe("73");
+    expect(rows[0].displayValues.y_segundos).toBe("11");
+  });
+
+  it("LONGITUD/LATITUD con sufijo ° siguen siendo válidas", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Dec con símbolo";
+    row[26] = "73°";
+    row[29] = "-74,1°";
+    row[33] = "4,05″";
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "u");
+
+    expect(errors).toHaveLength(0);
+    expect(ok[0].gps.longitud).toBeCloseTo(-74.1, 5);
+    expect(ok[0].gps.latitud).toBeCloseTo(4.05, 5);
+  });
 });

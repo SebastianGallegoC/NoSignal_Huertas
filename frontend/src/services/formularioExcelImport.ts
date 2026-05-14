@@ -11,6 +11,10 @@ import {
   MATRIZ_ROW_CELL_SOURCES,
   MATRIZ_SHEET_NAME,
 } from "@/services/matrizCaracterizacionExport";
+import {
+  COORD_NUMERIC_FIELD_KEYS,
+  normalizeCoordNumericCell,
+} from "@/lib/coordNumericToken";
 import { normalizeTelefonoStoredValue } from "@/lib/telefonoNormalize";
 import {
   FECHA_FORMATO_MSG,
@@ -116,6 +120,16 @@ function normalizeImportEnumerationFieldsInFormValues(out: FormValues): void {
   const tel = out.telefono;
   if (typeof tel === "string" && tel.trim() !== "") {
     out.telefono = normalizeTelefonoStoredValue(tel);
+  }
+}
+
+function normalizeCoordFieldsInFormValues(out: FormValues): void {
+  for (const key of COORD_NUMERIC_FIELD_KEYS) {
+    const v = out[key];
+    if (typeof v !== "string") {
+      continue;
+    }
+    out[key] = normalizeCoordNumericCell(v);
   }
 }
 
@@ -288,12 +302,46 @@ export function parseFechaCellForDatos(raw: string): string {
 }
 
 function parseCoord(s: string): number | null {
-  const t = s.replace(",", ".").trim();
-  if (t === "") {
+  const token = normalizeCoordNumericCell(s);
+  if (token === "") {
     return null;
   }
-  const n = Number.parseFloat(t);
+  const n = Number.parseFloat(token);
   return Number.isFinite(n) ? n : null;
+}
+
+/** Suma grados + minutos + segundos si los tres tokens son numéricos finitos. */
+function decimalFromDmsTriplet(deg: string, min: string, sec: string): number | null {
+  const d = parseCoord(deg);
+  const m = parseCoord(min);
+  const secN = parseCoord(sec);
+  if (d == null || m == null || secN == null) {
+    return null;
+  }
+  return d + m / 60 + secN / 3600;
+}
+
+/**
+ * Colombia: longitud oeste (negativa) a partir de magnitudes X en GMS; latitud norte (positiva).
+ */
+function gpsFromDatosDms(datos: Record<string, unknown>): {
+  longitud: number;
+  latitud: number;
+} | null {
+  const lonMag = decimalFromDmsTriplet(
+    String(datos.x_grados ?? ""),
+    String(datos.x_minutos ?? ""),
+    String(datos.x_segundos ?? ""),
+  );
+  const latDec = decimalFromDmsTriplet(
+    String(datos.y_grados ?? ""),
+    String(datos.y_minutos ?? ""),
+    String(datos.y_segundos ?? ""),
+  );
+  if (lonMag == null || latDec == null) {
+    return null;
+  }
+  return { longitud: -Math.abs(lonMag), latitud: Math.abs(latDec) };
 }
 
 /**
@@ -319,7 +367,9 @@ function rowToOfflineForm(
         break;
       case "field": {
         let stored = val;
-        if (inputKindForField(src.key) === "select-tri") {
+        if (COORD_NUMERIC_FIELD_KEYS.has(src.key)) {
+          stored = normalizeCoordNumericCell(val);
+        } else if (inputKindForField(src.key) === "select-tri") {
           stored = normalizeTriImportValue(val);
         } else if (SI_NO_IMPORT_NORMALIZE_FIELDS.has(src.key)) {
           stored = normalizeSiNoImportValue(val);
@@ -352,8 +402,18 @@ function rowToOfflineForm(
     };
   }
 
-  const lon = parseCoord(lonStr);
-  const lat = parseCoord(latStr);
+  let lon = parseCoord(lonStr);
+  let lat = parseCoord(latStr);
+  const lonTrim = lonStr.trim();
+  const latTrim = latStr.trim();
+  const hasValidDecimalPair = lon != null && lat != null;
+  if (!hasValidDecimalPair && lonTrim === "" && latTrim === "") {
+    const fromDms = gpsFromDatosDms(datos);
+    if (fromDms != null) {
+      lon = fromDms.longitud;
+      lat = fromDms.latitud;
+    }
+  }
   const gps: OfflineForm["gps"] =
     lon != null && lat != null
       ? { latitud: lat, longitud: lon, precision: 5 }
@@ -405,6 +465,7 @@ function cellsToFormValuesNormalized(cells: string[]): FormValues {
     out[src.key] = isValidYmd(parsed) ? parsed : "";
   }
   normalizeImportEnumerationFieldsInFormValues(out);
+  normalizeCoordFieldsInFormValues(out);
   return out;
 }
 

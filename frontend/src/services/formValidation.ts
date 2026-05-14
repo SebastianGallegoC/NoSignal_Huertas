@@ -8,6 +8,10 @@ import {
   inputKindForField,
   SI_NO_IMPORT_NORMALIZE_FIELDS,
 } from "@/config/formFieldMeta";
+import {
+  COORD_NUMERIC_FIELD_KEYS,
+  normalizeCoordNumericCell,
+} from "@/lib/coordNumericToken";
 import type { OfflineForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormFieldKey, type FormValues } from "@/types/formFields";
 const MIN_PHOTOS = 0;
@@ -103,7 +107,9 @@ export const validateFormValuesWithFieldDetails = (
       fk !== "satisfaccion_1_5" &&
       !isBlank(values[key])
     ) {
-      const raw = String(values[key]).replace(/\s/g, "").replace(",", ".");
+      const raw = COORD_NUMERIC_FIELD_KEYS.has(fk)
+        ? normalizeCoordNumericCell(String(values[key]))
+        : String(values[key]).replace(/\s/g, "").replace(",", ".");
       if (raw === "" || !Number.isFinite(Number(raw))) {
         fieldIssues.push({
           field: fk,

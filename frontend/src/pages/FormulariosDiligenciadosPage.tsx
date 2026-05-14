@@ -169,6 +169,30 @@ export const FormulariosDiligenciadosPage = () => {
     });
   }, [rowsMostrados, filtroBeneficiario, filtroDesde, filtroHasta]);
 
+  /** Total en servidor; `sin_red` = sin Wi‑Fi/datos: no se muestra ningún mensaje en UI. */
+  const contadorServidor = useMemo(() => {
+    const navOnLine =
+      typeof navigator !== "undefined" ? navigator.onLine : true;
+    if (!online || !navOnLine) {
+      return { estado: "sin_red" as const };
+    }
+    const token =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem(ACCESS_TOKEN_KEY)
+        : null;
+    if (!token) {
+      return { estado: "sin_sesion" as const };
+    }
+    if (remoteError) {
+      return { estado: "error_listado" as const };
+    }
+    if (!remoteLoaded) {
+      return { estado: "cargando" as const };
+    }
+    const n = rows.filter((r) => r.onServer).length;
+    return { estado: "listo" as const, count: n };
+  }, [online, remoteLoaded, remoteError, rows]);
+
   const loadList = useCallback(async (): Promise<DisplayRow[]> => {
     setRemoteError(null);
 
@@ -883,6 +907,55 @@ export const FormulariosDiligenciadosPage = () => {
             <h1 className="mt-1 text-2xl font-semibold sm:mt-2 sm:text-3xl">
               Formularios diligenciados
             </h1>
+            {contadorServidor.estado !== "sin_red" ? (
+              <p className="mt-2 max-w-xl text-sm leading-snug text-slate-600">
+                {contadorServidor.estado === "sin_sesion" ? (
+                  <>
+                    <span className="font-medium text-slate-700">
+                      En el servidor:
+                    </span>{" "}
+                    iniciá sesión para ver el total de formularios guardados allí.
+                  </>
+                ) : contadorServidor.estado === "error_listado" ? (
+                  <>
+                    <span className="font-medium text-slate-700">
+                      En el servidor:
+                    </span>{" "}
+                    no se pudo obtener el total (revisá la conexión o reintentá
+                    con «Recargar»).
+                  </>
+                ) : contadorServidor.estado === "cargando" ? (
+                  <>
+                    <span className="font-medium text-slate-700">
+                      En el servidor:
+                    </span>{" "}
+                    consultando…
+                  </>
+                ) : contadorServidor.count === 1 ? (
+                  <>
+                    <span className="font-medium text-slate-700">
+                      En el servidor:
+                    </span>{" "}
+                    hay{" "}
+                    <span className="font-semibold tabular-nums text-teal-800">
+                      1
+                    </span>{" "}
+                    formulario diligenciado.
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium text-slate-700">
+                      En el servidor:
+                    </span>{" "}
+                    hay{" "}
+                    <span className="font-semibold tabular-nums text-teal-800">
+                      {contadorServidor.count}
+                    </span>{" "}
+                    formularios diligenciados.
+                  </>
+                )}
+              </p>
+            ) : null}
           </div>
           <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto sm:flex-nowrap">
             <Button

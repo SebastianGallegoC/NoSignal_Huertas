@@ -282,7 +282,7 @@ describe("parsePlantillaWorkbook", () => {
     expect(ok[0].datos_formulario.telefono).toBe("No tiene");
   });
 
-  it("importa GMS con símbolos ° ′ ″ y deriva GPS si LONGITUD/LATITUD vacías", async () => {
+  it("importa GMS con símbolos ° ′ ″ sin derivar GPS si LONGITUD/LATITUD vacías", async () => {
     const row = new Array<string | number | null>(76).fill(null);
     row[7] = "Con GMS en Excel";
     row[26] = "73°";
@@ -304,12 +304,9 @@ describe("parsePlantillaWorkbook", () => {
     expect(ok[0].datos_formulario.y_minutos).toBe("19");
     expect(ok[0].datos_formulario.y_segundos).toBe("11");
 
-    const lonMag = 73 + 17 / 60 + 47 / 3600;
-    const latDec = 8 + 19 / 60 + 11 / 3600;
-    expect(ok[0].gps.longitud).toBeCloseTo(-lonMag, 5);
-    expect(ok[0].gps.latitud).toBeCloseTo(latDec, 5);
-    expect(Number(ok[0].datos_formulario.longitud)).toBeCloseTo(-lonMag, 5);
-    expect(Number(ok[0].datos_formulario.latitud)).toBeCloseTo(latDec, 5);
+    expect(ok[0].gps).toEqual(GPS_PLACEHOLDER_WHEN_NOT_CAPTURED);
+    expect(ok[0].datos_formulario.longitud).toBeUndefined();
+    expect(ok[0].datos_formulario.latitud).toBeUndefined();
   });
 
   it("previewPlantillaWorkbook acepta fila GMS con símbolos (vista previa válida)", async () => {
@@ -365,7 +362,7 @@ describe("parsePlantillaWorkbook", () => {
     expect(Number(ok[0].datos_formulario.latitud)).toBeCloseTo(4.60971, 5);
   });
 
-  it("LONGITUD decimal y solo GMS en Y: completa latitud en vista previa y al confirmar celdas", async () => {
+  it("LONGITUD decimal y solo GMS en Y: no completa latitud automáticamente", async () => {
     const row = new Array<string | number | null>(76).fill(null);
     row[7] = "Mix coords";
     row[29] = "-74.08175";
@@ -378,21 +375,18 @@ describe("parsePlantillaWorkbook", () => {
 
     expect(errors).toHaveLength(0);
     expect(rows[0].isValid).toBe(true);
-    expect(rows[0].displayValues.latitud).toBe(
-      (8 + 19 / 60 + 11 / 3600).toFixed(6),
-    );
+    expect(rows[0].displayValues.longitud).toBe("-74.081750");
+    expect(rows[0].displayValues.latitud).toBe("");
 
     const cells = formValuesToCells(rows[0].displayValues, rows[0].idRaw);
     const { form, error } = buildOfflineFormFromImportCells(cells, "u");
     expect(error).toBeUndefined();
-    expect(form?.gps.latitud).toBeCloseTo(8 + 19 / 60 + 11 / 3600, 5);
-    expect(Number(form?.datos_formulario.latitud)).toBeCloseTo(
-      8 + 19 / 60 + 11 / 3600,
-      5,
-    );
+    expect(form?.gps).toEqual(GPS_PLACEHOLDER_WHEN_NOT_CAPTURED);
+    expect(form?.datos_formulario.longitud).toBe("-74.081750");
+    expect(form?.datos_formulario.latitud).toBeUndefined();
   });
 
-  it("LATITUD decimal y solo GMS en X: completa longitud en vista previa", async () => {
+  it("LATITUD decimal y solo GMS en X: no completa longitud automáticamente", async () => {
     const row = new Array<string | number | null>(76).fill(null);
     row[7] = "Mix coords 2";
     row[26] = "73";
@@ -405,8 +399,8 @@ describe("parsePlantillaWorkbook", () => {
 
     expect(errors).toHaveLength(0);
     expect(rows[0].isValid).toBe(true);
-    const lonMag = 73 + 17 / 60 + 47 / 3600;
-    expect(rows[0].displayValues.longitud).toBe((-lonMag).toFixed(6));
+    expect(rows[0].displayValues.longitud).toBe("");
+    expect(rows[0].displayValues.latitud).toBe("4.609710");
   });
 
   it("LONGITUD vacía y x_* en 0: no inventa longitud; conserva latitud decimal", async () => {

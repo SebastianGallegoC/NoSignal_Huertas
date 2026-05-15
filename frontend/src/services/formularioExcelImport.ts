@@ -320,56 +320,13 @@ function parseCoord(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Suma grados + minutos + segundos si los tres tokens son numéricos finitos. */
-function decimalFromDmsTriplet(deg: string, min: string, sec: string): number | null {
-  const d = parseCoord(deg);
-  const m = parseCoord(min);
-  const secN = parseCoord(sec);
-  if (d == null || m == null || secN == null) {
-    return null;
-  }
-  return d + m / 60 + secN / 3600;
-}
-
-function longitudeFromDmsIfComplete(datos: Record<string, unknown>): number | null {
-  const lonMag = decimalFromDmsTriplet(
-    String(datos.x_grados ?? ""),
-    String(datos.x_minutos ?? ""),
-    String(datos.x_segundos ?? ""),
-  );
-  if (lonMag == null || lonMag === 0) {
-    return null;
-  }
-  return -Math.abs(lonMag);
-}
-
-function latitudeFromDmsIfComplete(datos: Record<string, unknown>): number | null {
-  const latDec = decimalFromDmsTriplet(
-    String(datos.y_grados ?? ""),
-    String(datos.y_minutos ?? ""),
-    String(datos.y_segundos ?? ""),
-  );
-  if (latDec == null || latDec === 0) {
-    return null;
-  }
-  return Math.abs(latDec);
-}
-
-/** Decimal en celdas LONGITUD/LATITUD; si falta un eje y el GMS de ese eje está completo, lo completa. */
+/** Decimal en celdas LONGITUD/LATITUD; no se infiere desde GMS para no inventar datos. */
 function mergeLonLatWithDms(
   lonStr: string,
   latStr: string,
-  datos: Record<string, unknown>,
+  _datos: Record<string, unknown>,
 ): { lon: number | null; lat: number | null } {
-  let lon = parseCoord(lonStr);
-  let lat = parseCoord(latStr);
-  if (lon == null) {
-    lon = longitudeFromDmsIfComplete(datos);
-  }
-  if (lat == null) {
-    lat = latitudeFromDmsIfComplete(datos);
-  }
-  return { lon, lat };
+  return { lon: parseCoord(lonStr), lat: parseCoord(latStr) };
 }
 
 /**

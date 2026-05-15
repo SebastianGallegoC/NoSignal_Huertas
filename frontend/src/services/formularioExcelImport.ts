@@ -337,7 +337,7 @@ function longitudeFromDmsIfComplete(datos: Record<string, unknown>): number | nu
     String(datos.x_minutos ?? ""),
     String(datos.x_segundos ?? ""),
   );
-  if (lonMag == null) {
+  if (lonMag == null || lonMag === 0) {
     return null;
   }
   return -Math.abs(lonMag);
@@ -349,7 +349,7 @@ function latitudeFromDmsIfComplete(datos: Record<string, unknown>): number | nul
     String(datos.y_minutos ?? ""),
     String(datos.y_segundos ?? ""),
   );
-  if (latDec == null) {
+  if (latDec == null || latDec === 0) {
     return null;
   }
   return Math.abs(latDec);
@@ -438,8 +438,10 @@ function rowToOfflineForm(
       ? { latitud: lat, longitud: lon, precision: 5 }
       : { ...GPS_PLACEHOLDER_WHEN_NOT_CAPTURED };
 
-  if (lon != null && lat != null) {
+  if (lon != null) {
     datos.longitud = lon.toFixed(6);
+  }
+  if (lat != null) {
     datos.latitud = lat.toFixed(6);
   }
 
@@ -525,12 +527,11 @@ export function analyzeImportRow(
     latStr,
     datosForDms,
   );
-  if (mergedLon != null && mergedLat != null) {
-    displayValues = {
-      ...displayValues,
-      longitud: mergedLon.toFixed(6),
-      latitud: mergedLat.toFixed(6),
-    };
+  if (mergedLon != null) {
+    displayValues = { ...displayValues, longitud: mergedLon.toFixed(6) };
+  }
+  if (mergedLat != null) {
+    displayValues = { ...displayValues, latitud: mergedLat.toFixed(6) };
   }
 
   if (lonTrim !== "" && parseCoord(lonStr) == null && mergedLon == null) {

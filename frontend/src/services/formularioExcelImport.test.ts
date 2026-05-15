@@ -409,6 +409,46 @@ describe("parsePlantillaWorkbook", () => {
     expect(rows[0].displayValues.longitud).toBe((-lonMag).toFixed(6));
   });
 
+  it("LONGITUD vacía y x_* en 0: no inventa longitud; conserva latitud decimal", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Sin lon inventada";
+    row[26] = 0;
+    row[27] = 0;
+    row[28] = 0;
+    row[33] = "4.60971";
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { rows, errors } = await previewPlantillaWorkbook(buffer, "u");
+    const { ok, errors: parseErrors } = await parsePlantillaWorkbook(buffer, "u");
+
+    expect(errors).toHaveLength(0);
+    expect(parseErrors).toHaveLength(0);
+    expect(rows[0].isValid).toBe(true);
+    expect(rows[0].displayValues.longitud).toBe("");
+    expect(rows[0].displayValues.latitud).toBe("4.609710");
+
+    expect(ok).toHaveLength(1);
+    expect(ok[0].gps).toEqual(GPS_PLACEHOLDER_WHEN_NOT_CAPTURED);
+    expect(ok[0].datos_formulario.longitud).toBeUndefined();
+    expect(Number(ok[0].datos_formulario.latitud)).toBeCloseTo(4.60971, 5);
+  });
+
+  it("LONGITUD vacía y x_* como texto 0: no inventa longitud", async () => {
+    const row = new Array<string | number | null>(76).fill(null);
+    row[7] = "Cerosen texto";
+    row[26] = "0";
+    row[27] = "0";
+    row[28] = "0";
+    row[33] = "4.0";
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer, "u");
+
+    expect(errors).toHaveLength(0);
+    expect(ok[0].datos_formulario.longitud).toBeUndefined();
+    expect(ok[0].gps).toEqual(GPS_PLACEHOLDER_WHEN_NOT_CAPTURED);
+  });
+
   it("normaliza «Distancia Infraestructura Adecuada» con sufijo M/m en Excel (columna ~51)", async () => {
     const row = new Array<string | number | null>(76).fill(null);
     row[7] = "Benef distancia";

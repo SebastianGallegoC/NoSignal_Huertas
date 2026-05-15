@@ -64,7 +64,7 @@ services:
       API_V1_PREFIX: "/api/v1"
       JWT_SECRET: ${JWT_SECRET:?set_JWT_SECRET}
       JWT_ALGORITHM: "HS256"
-      JWT_EXPIRES_MINUTES: "480"
+      JWT_EXPIRES_MINUTES: ${JWT_EXPIRES_MINUTES:-525600}
       NOSIGNAL_AUTH_USERS: ${NOSIGNAL_AUTH_USERS:?set_NOSIGNAL_AUTH_USERS}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://nosignal.site}
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://nosignal:${POSTGRES_PASSWORD}@db:5432/nosignal}

@@ -46,8 +46,9 @@ dig +short @8.8.8.8 api.tu-dominio A
 Cuando el primero ya muestra tu IP y el segundo aún no, es **propagación/TTL**; suele resolverse en minutos u horas. Si el autoritativo (`dns1`) no coincide con lo que configuraste en el panel, revisá el panel o el modo de nameservers.
 
 ## Variables críticas
-Usar `.env` en la raíz (puedes partir de `.env.example`):
+Usar `.env` en la raíz (puedes partir de `.env.example`). Es la fuente de verdad para Docker; `backend/.env` solo aplica si corrés el API fuera de contenedores.
 - `JWT_SECRET` (mínimo 32 chars)
+- `JWT_EXPIRES_MINUTES` (p. ej. `525600` ≈ 1 año de sesión)
 - `POSTGRES_PASSWORD`
 - `NOSIGNAL_AUTH_USERS`
 - `ACME_EMAIL`
@@ -67,6 +68,12 @@ python scripts/hash_password.py
 ```bash
 docker compose build
 docker compose up -d
+```
+
+Tras cambiar `JWT_EXPIRES_MINUTES` o `JWT_SECRET`, reiniciá el backend y volvé a iniciar sesión en la app (los tokens ya emitidos conservan la expiración anterior):
+
+```bash
+docker compose up -d backend
 ```
 
 ## Migraciones (Alembic)

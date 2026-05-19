@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import { Workbook, type Cell, type Row, type Worksheet } from "exceljs";
 
 import {
   inputKindForField,
@@ -260,11 +260,11 @@ function valueToImportString(raw: unknown): string {
   return String(raw).trim();
 }
 
-function cellValueToImportString(cell: ExcelJS.Cell): string {
+function cellValueToImportString(cell: Cell): string {
   return valueToImportString(cell.value);
 }
 
-function readDataRowStrings(row: ExcelJS.Row): string[] {
+function readDataRowStrings(row: Row): string[] {
   const out: string[] = [];
   for (let c = 1; c <= 76; c++) {
     out.push(cellValueToImportString(row.getCell(c)));
@@ -556,8 +556,8 @@ export function analyzeImportRow(
 
 async function loadPlantillaSheet(
   buffer: ArrayBuffer,
-): Promise<{ worksheet: ExcelJS.Worksheet } | { error: ImportRowError }> {
-  const wb = new ExcelJS.Workbook();
+): Promise<{ worksheet: Worksheet } | { error: ImportRowError }> {
+  const wb = new Workbook();
   await wb.xlsx.load(buffer);
   const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
   if (!ws) {

@@ -6,6 +6,7 @@ import {
   filterDisplayRowsWithPrecarga,
   getBeneficiarioDisplayName,
   resolveDatosFormularioForExport,
+  resolveGpsForExport,
   mapServerFotos,
   mergeFormsWithPrecargas,
   normalizeTextoBusqueda,
@@ -67,6 +68,67 @@ describe("formHistory — beneficiario", () => {
       } satisfies HistorialForm,
     };
     expect(resolveDatosFormularioForExport(row).fecha_inicio).toBe("2026-05-01");
+  });
+
+  it("resolveGpsForExport prioriza servidor sobre historial", () => {
+    const row: DisplayRow = {
+      id_formulario: "gps-1",
+      onServer: true,
+      server: {
+        id_formulario: "gps-1",
+        id_usuario: "u",
+        fecha_hora: "2026-01-01T00:00:00Z",
+        fecha_actualizacion: "2026-01-01T00:00:00Z",
+        latitud: 4.6,
+        longitud: -74.08,
+        precision: 5,
+        datos_formulario: {},
+        fotos: [],
+      },
+      historial: {
+        id_formulario: "gps-1",
+        id_usuario: "u",
+        fecha_hora: "2026-01-01T00:00:00Z",
+        estado: "ENVIADO",
+        gps: { latitud: 1, longitud: 2, precision: 1 },
+      } satisfies HistorialForm,
+    };
+    expect(resolveGpsForExport(row)).toEqual({
+      latitud: 4.6,
+      longitud: -74.08,
+      precision: 5,
+    });
+  });
+
+  it("resolveDatosFormularioForExport prioriza cola local sobre servidor", () => {
+    const row: DisplayRow = {
+      id_formulario: "q-1",
+      onServer: true,
+      server: {
+        id_formulario: "q-1",
+        id_usuario: "u",
+        fecha_hora: "2026-01-01T00:00:00Z",
+        fecha_actualizacion: "2026-01-01T00:00:00Z",
+        latitud: 0,
+        longitud: 0,
+        precision: 1,
+        datos_formulario: { fecha_inicio: "2026-01-01" },
+        fotos: [],
+      },
+    };
+    const queued = {
+      id_formulario: "q-1",
+      id_usuario: "u",
+      fecha_hora: "2026-02-01T00:00:00Z",
+      gps: { latitud: 3, longitud: -70, precision: 2 },
+      datos_formulario: { fecha_inicio: "2026-12-15" },
+      fotos: [],
+      estado_sincronizacion: "PENDIENTE" as const,
+    };
+    expect(resolveDatosFormularioForExport(row, queued).fecha_inicio).toBe(
+      "2026-12-15",
+    );
+    expect(resolveGpsForExport(row, queued).latitud).toBe(3);
   });
 
   it("getBeneficiarioDisplayName usa servidor si no hay historial", () => {

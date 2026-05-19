@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import { Workbook } from "exceljs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,7 +23,7 @@ import {
 async function buildMinimalPlantillaBuffer(
   row8Values: (string | number | null)[],
 ): Promise<ArrayBuffer> {
-  const wb = new ExcelJS.Workbook();
+  const wb = new Workbook();
   const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
   MATRIZ_F_PSA_HEADERS.forEach((h, i) => {
     ws.getCell(7, i + 1).value = h;
@@ -168,7 +168,7 @@ describe("parsePlantillaWorkbook", () => {
   });
 
   it("importa aunque los textos de la fila 7 no coincidan con la plantilla oficial", async () => {
-    const wb = new ExcelJS.Workbook();
+    const wb = new Workbook();
     const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
     ws.getCell(7, 1).value = "Encabezado arbitrario";
     ws.getCell(7, 2).value = "Otro título";

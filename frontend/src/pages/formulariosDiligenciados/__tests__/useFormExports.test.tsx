@@ -6,6 +6,7 @@ import type { FormularioSnapshot } from "@/components/form/FormularioRespuestaRe
 import type { FotoForm, PrecargaForm } from "@/services/db";
 import type { DisplayRow } from "@/services/formHistory";
 import { useFormExports } from "@/pages/formulariosDiligenciados/useFormExports";
+import { buildMatrizCaracterizacionRow } from "@/services/matrizCaracterizacionExport";
 
 const exportMocks = vi.hoisted(() => ({
   downloadMatrizCaracterizacionXlsx: vi.fn(),
@@ -36,7 +37,17 @@ vi.mock("@/services/db", () => ({
   },
 }));
 
-vi.mock("@/services/matrizCaracterizacionExport", () => exportMocks);
+vi.mock("@/services/matrizCaracterizacionExport", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/services/matrizCaracterizacionExport")>();
+  return {
+    ...actual,
+    downloadMatrizCaracterizacionXlsx:
+      exportMocks.downloadMatrizCaracterizacionXlsx,
+    downloadMatrizCaracterizacionBulkXlsx:
+      exportMocks.downloadMatrizCaracterizacionBulkXlsx,
+  };
+});
 vi.mock("@/services/photosExport", () => photoMocks);
 vi.mock("@/pages/formulariosDiligenciados/helpers", () => helperMocks);
 
@@ -243,6 +254,80 @@ describe("useFormExports", () => {
     const payload =
       exportMocks.downloadMatrizCaracterizacionBulkXlsx.mock.calls[0]?.[0];
     expect(payload[0]?.datos_formulario?.fecha_inicio).toBe("2026-05-10");
+
+  /** Columna E = FECHA INICIO (índice 4 en MATRIZ_ROW_CELL_SOURCES). */
+    const excelRow = buildMatrizCaracterizacionRow(payload[0]!);
+    expect(excelRow[4]).toBe("10/05/2026");
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it("exporta Excel consolidado priorizando cola local sobre servidor", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let handlers: HookHandlers | null = null;
+
+    const row = buildRow({
+      server: {
+        id_formulario: "form-1",
+        id_usuario: "user",
+        fecha_hora: "2026-01-01T10:00:00.000Z",
+        fecha_actualizacion: "2026-01-01T10:00:00.000Z",
+        latitud: 1,
+        longitud: 2,
+        precision: 3,
+        datos_formulario: { fecha_inicio: "2026-01-01" },
+        fotos: [],
+      },
+    });
+
+    dbMocks.bulkGet.mockResolvedValueOnce([
+      {
+        id_formulario: "form-1",
+        id_usuario: "user",
+        fecha_hora: "2026-06-01T10:00:00.000Z",
+        gps: { latitud: 5, longitud: -75, precision: 4 },
+        datos_formulario: { fecha_inicio: "2026-12-20" },
+        fotos: [],
+        estado_sincronizacion: "PENDIENTE",
+      },
+    ]);
+
+    await act(async () => {
+      root.render(
+        <Harness
+          rows={[row]}
+          detailSnapshot={null}
+          detailPrecarga={null}
+          onReady={(h) => {
+            handlers = h;
+          }}
+          setDescargaExcelError={vi.fn()}
+          setDescargaFotosError={vi.fn()}
+          setDescargandoExcelId={vi.fn()}
+          setDescargandoFotosId={vi.fn()}
+          setDescargandoTodosExcel={vi.fn()}
+          setDescargandoTodasFotos={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await handlers?.descargarExcelDeTodos();
+    });
+
+    const payload =
+      exportMocks.downloadMatrizCaracterizacionBulkXlsx.mock.calls[0]?.[0];
+    expect(payload[0]?.datos_formulario?.fecha_inicio).toBe("2026-12-20");
+    expect(payload[0]?.gps).toEqual({
+      latitud: 5,
+      longitud: -75,
+      precision: 4,
+    });
 
     act(() => {
       root.unmount();

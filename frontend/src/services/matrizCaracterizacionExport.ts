@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import { Workbook, type Worksheet } from "exceljs";
 
 import { GPS_PLACEHOLDER_WHEN_NOT_CAPTURED } from "@/constants/gpsConfig";
 import { normalizeCoordNumericCell } from "@/lib/coordNumericToken";
@@ -371,18 +371,41 @@ export function matrizCaracterizacionBulkFilename(date = new Date()): string {
   return `Formularios_diligenciados_${y}-${m}-${day}.xlsx`;
 }
 
+/** ExcelJS expone `dataValidations` en runtime; no figura en index.d.ts. */
+type WorksheetDataValidations = {
+  model?: Record<string, unknown>;
+};
+
+type WorksheetWithDataValidations = Worksheet & {
+  dataValidations?: WorksheetDataValidations;
+};
+
+function worksheetWithDataValidations(
+  ws: Worksheet,
+): WorksheetWithDataValidations {
+  return ws as WorksheetWithDataValidations;
+}
+
+/** Cuenta reglas de validación de datos en la hoja (p. ej. en tests). */
+export function countWorksheetDataValidations(ws: Worksheet): number {
+  return Object.keys(
+    worksheetWithDataValidations(ws).dataValidations?.model ?? {},
+  ).length;
+}
+
 /**
  * La plantilla F-PSA-08 suele traer listas (validación de datos) que apuntan a la hoja
  * DOMINIOS. Si esa hoja no está en el libro, Excel muestra «No válido: La entrada debe
  * estar en el rango especificado» aunque el texto de la celda sea correcto.
  */
-export function stripWorksheetDataValidations(ws: ExcelJS.Worksheet): void {
-  if (ws.dataValidations?.model) {
-    ws.dataValidations.model = {};
+export function stripWorksheetDataValidations(ws: Worksheet): void {
+  const dv = worksheetWithDataValidations(ws).dataValidations;
+  if (dv?.model) {
+    dv.model = {};
   }
 }
 
-async function loadTemplateWorkbook(): Promise<ExcelJS.Workbook | null> {
+async function loadTemplateWorkbook(): Promise<Workbook | null> {
   const templateUrl = import.meta.env.VITE_MATRIZ_TEMPLATE_URL ??
     "/PLANTILLA.xlsx";
   const resolvedTemplateUrl =
@@ -396,7 +419,7 @@ async function loadTemplateWorkbook(): Promise<ExcelJS.Workbook | null> {
       return null;
     }
     const buf = await res.arrayBuffer();
-    const wb = new ExcelJS.Workbook();
+    const wb = new Workbook();
     await wb.xlsx.load(buf);
     for (const sheet of wb.worksheets) {
       stripWorksheetDataValidations(sheet);
@@ -410,7 +433,7 @@ async function loadTemplateWorkbook(): Promise<ExcelJS.Workbook | null> {
 
 export async function buildMatrizCaracterizacionWorkbook(
   form: OfflineForm,
-): Promise<ExcelJS.Workbook> {
+): Promise<Workbook> {
   const wb = await loadTemplateWorkbook();
   if (wb) {
     const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
@@ -436,8 +459,8 @@ export async function buildMatrizCaracterizacionWorkbook(
 
 async function buildMatrizCaracterizacionWorkbookFromScratch(
   form: OfflineForm,
-): Promise<ExcelJS.Workbook> {
-  const wb = new ExcelJS.Workbook();
+): Promise<Workbook> {
+  const wb = new Workbook();
   const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
 
   ws.mergeCells(5, 5, 5, 14);
@@ -487,7 +510,7 @@ export async function downloadMatrizCaracterizacionXlsx(
 
 export async function buildMatrizCaracterizacionWorkbookBulk(
   forms: OfflineForm[],
-): Promise<ExcelJS.Workbook> {
+): Promise<Workbook> {
   const wb = (await loadTemplateWorkbook()) ??
     (await buildMatrizCaracterizacionWorkbookFromScratch(forms[0] ?? {
       id_formulario: "tmp",

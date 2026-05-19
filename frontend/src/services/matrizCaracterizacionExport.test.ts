@@ -1,4 +1,4 @@
-import ExcelJS from "exceljs";
+import { Workbook } from "exceljs";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +15,8 @@ import {
   buildMatrizCaracterizacionWorkbookBulk,
   buildMatrizCaracterizacionRow,
   buildMatrizCaracterizacionWorkbook,
+  coordFieldForMatrizExport,
+  countWorksheetDataValidations,
   downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
   formatFechaMatriz,
@@ -113,6 +115,27 @@ describe("buildMatrizCaracterizacionRow", () => {
     expect(row[28]).toBe("");
     expect(row[29]).toBe("");
     expect(row[33]).toBe("4.60971");
+  });
+
+  it("formatea fecha_inicio YYYY-MM-DD en columna FECHA INICIO (índice 4)", () => {
+    const f = minimalForm();
+    f.datos_formulario = { fecha_inicio: "2026-05-10" };
+    const row = buildMatrizCaracterizacionRow(f);
+    expect(row[4]).toBe("10/05/2026");
+  });
+
+  it("coordFieldForMatrizExport exporta GMS y decimales sin inventar ceros", () => {
+    const datos = {
+      x_grados: "73",
+      x_minutos: "0",
+      x_segundos: "0",
+      longitud: "",
+      latitud: "4.60971",
+    };
+    expect(coordFieldForMatrizExport(datos, "x_grados")).toBe("73");
+    expect(coordFieldForMatrizExport(datos, "x_minutos")).toBe("");
+    expect(coordFieldForMatrizExport(datos, "longitud")).toBe("");
+    expect(coordFieldForMatrizExport(datos, "latitud")).toBe("4.60971");
   });
 
   it("exporta minutos/segundos vacíos en lugar de 0 cuando no se diligenciaron", () => {
@@ -236,11 +259,11 @@ describe("buildMatrizCaracterizacionWorkbook", () => {
     const wb = await buildMatrizCaracterizacionWorkbook(f);
     const ws = wb.getWorksheet("F-PSA-08");
     expect(ws).toBeTruthy();
-    expect(Object.keys(ws!.dataValidations?.model ?? {})).toHaveLength(0);
+    expect(countWorksheetDataValidations(ws!)).toBe(0);
   });
 
   it("usa PLANTILLA.xlsx por defecto para construir el libro", async () => {
-    const template = new ExcelJS.Workbook();
+    const template = new Workbook();
     const ws = template.addWorksheet("F-PSA-08");
     ws.getCell(7, 1).value = "ID";
     const templateBuffer = await template.xlsx.writeBuffer();
@@ -284,7 +307,7 @@ describe("buildMatrizCaracterizacionWorkbook", () => {
     const buf = await wb.xlsx.writeBuffer();
     expect(buf.byteLength).toBeGreaterThan(2500);
 
-    const wb2 = new ExcelJS.Workbook();
+    const wb2 = new Workbook();
     await wb2.xlsx.load(buf);
     const ws2 = wb2.getWorksheet(MATRIZ_SHEET_NAME);
     expect(ws2!.getCell(8, 63).value).toBe("Nota fin");
@@ -295,6 +318,24 @@ describe("buildMatrizCaracterizacionWorkbookBulk", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("al usar plantilla quita validaciones DOMINIOS en exportación masiva", async () => {
+    const templateBuffer = readFileSync(
+      join(process.cwd(), "public", "PLANTILLA.xlsx"),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        arrayBuffer: async () => templateBuffer,
+      }),
+    );
+    const f = minimalForm();
+    f.datos_formulario = { entidad_aportante: "Bulk" };
+    const wb = await buildMatrizCaracterizacionWorkbookBulk([f]);
+    const ws = wb.getWorksheet(MATRIZ_SHEET_NAME);
+    expect(countWorksheetDataValidations(ws!)).toBe(0);
   });
 
   it("escribe fecha_inicio del primer formulario en la columna FECHA INICIO", async () => {

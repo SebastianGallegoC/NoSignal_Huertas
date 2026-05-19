@@ -200,6 +200,11 @@ export function formatFechaMatriz(raw: string): string {
   if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(t)) {
     return t;
   }
+  const isoDay = t.match(/^(\d{4})-(\d{2})-(\d{2})(?:$|[T\s])/);
+  if (isoDay) {
+    const [, year, month, day] = isoDay;
+    return `${day}/${month}/${year}`;
+  }
   const ms = Date.parse(t);
   if (Number.isNaN(ms)) {
     return t;

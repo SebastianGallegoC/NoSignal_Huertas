@@ -5,6 +5,7 @@ import type { HistorialForm, PrecargaForm } from "@/services/db";
 import {
   filterDisplayRowsWithPrecarga,
   getBeneficiarioDisplayName,
+  resolveDatosFormularioForExport,
   mapServerFotos,
   mergeFormsWithPrecargas,
   normalizeTextoBusqueda,
@@ -40,6 +41,32 @@ describe("formHistory — beneficiario", () => {
       } satisfies HistorialForm,
     };
     expect(getBeneficiarioDisplayName(row)).toBe("Ana Pérez");
+  });
+
+  it("resolveDatosFormularioForExport prioriza servidor sobre historial (p. ej. fecha_inicio)", () => {
+    const row: DisplayRow = {
+      id_formulario: "a",
+      onServer: true,
+      server: {
+        id_formulario: "a",
+        id_usuario: "u",
+        fecha_hora: "2026-01-01T00:00:00Z",
+        fecha_actualizacion: "2026-01-01T00:00:00Z",
+        latitud: 0,
+        longitud: 0,
+        precision: 1,
+        datos_formulario: { fecha_inicio: "2026-05-01" },
+        fotos: [],
+      },
+      historial: {
+        id_formulario: "a",
+        id_usuario: "u",
+        fecha_hora: "2026-01-01T00:00:00Z",
+        estado: "ENVIADO",
+        datos_formulario: { fecha_inicio: "2020-01-01" },
+      } satisfies HistorialForm,
+    };
+    expect(resolveDatosFormularioForExport(row).fecha_inicio).toBe("2026-05-01");
   });
 
   it("getBeneficiarioDisplayName usa servidor si no hay historial", () => {

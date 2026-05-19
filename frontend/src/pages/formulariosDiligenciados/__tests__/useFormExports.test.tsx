@@ -24,6 +24,18 @@ const helperMocks = vi.hoisted(() => ({
   ),
 }));
 
+const dbMocks = vi.hoisted(() => ({
+  bulkGet: vi.fn(async () => [] as unknown[]),
+}));
+
+vi.mock("@/services/db", () => ({
+  db: {
+    formularios: {
+      bulkGet: dbMocks.bulkGet,
+    },
+  },
+}));
+
 vi.mock("@/services/matrizCaracterizacionExport", () => exportMocks);
 vi.mock("@/services/photosExport", () => photoMocks);
 vi.mock("@/pages/formulariosDiligenciados/helpers", () => helperMocks);
@@ -63,6 +75,8 @@ const Harness = (props: HarnessProps) => {
 describe("useFormExports", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    dbMocks.bulkGet.mockReset();
+    dbMocks.bulkGet.mockResolvedValue([]);
     helperMocks.fotosConVisitaDesdeDetalle.mockReset();
     helperMocks.fotosConVisitaDesdeDetalle.mockImplementation(() => []);
     helperMocks.hydrateFotosFromServerIfNeeded.mockReset();
@@ -169,6 +183,66 @@ describe("useFormExports", () => {
       exportMocks.downloadMatrizCaracterizacionBulkXlsx.mock.calls[0]?.[0];
     expect(Array.isArray(payload)).toBe(true);
     expect(payload[0]?.id_formulario).toBe("form-1");
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it("exporta Excel consolidado con datos del servidor si hay historial local distinto", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let handlers: HookHandlers | null = null;
+
+    const row = buildRow({
+      server: {
+        id_formulario: "form-1",
+        id_usuario: "user",
+        fecha_hora: "2026-01-01T10:00:00.000Z",
+        fecha_actualizacion: "2026-01-01T10:00:00.000Z",
+        latitud: 1,
+        longitud: 2,
+        precision: 3,
+        datos_formulario: { fecha_inicio: "2026-05-10" },
+        fotos: [],
+      },
+      historial: {
+        id_formulario: "form-1",
+        id_usuario: "user",
+        fecha_hora: "2026-01-01T10:00:00.000Z",
+        estado: "ENVIADO",
+        datos_formulario: { fecha_inicio: "2020-01-01" },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <Harness
+          rows={[row]}
+          detailSnapshot={null}
+          detailPrecarga={null}
+          onReady={(h) => {
+            handlers = h;
+          }}
+          setDescargaExcelError={vi.fn()}
+          setDescargaFotosError={vi.fn()}
+          setDescargandoExcelId={vi.fn()}
+          setDescargandoFotosId={vi.fn()}
+          setDescargandoTodosExcel={vi.fn()}
+          setDescargandoTodasFotos={vi.fn()}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await handlers?.descargarExcelDeTodos();
+    });
+
+    const payload =
+      exportMocks.downloadMatrizCaracterizacionBulkXlsx.mock.calls[0]?.[0];
+    expect(payload[0]?.datos_formulario?.fecha_inicio).toBe("2026-05-10");
 
     act(() => {
       root.unmount();

@@ -59,6 +59,10 @@ describe("formatFechaMatriz", () => {
     expect(formatFechaMatriz("2026-03-15T00:00:00.000Z")).toBe("15/03/2026");
   });
 
+  it("convierte YYYY-MM-DD sin desfase de zona horaria", () => {
+    expect(formatFechaMatriz("2026-03-15")).toBe("15/03/2026");
+  });
+
   it("deja DD/MM/AAAA sin cambios", () => {
     expect(formatFechaMatriz("05/04/2026")).toBe("05/04/2026");
   });
@@ -224,6 +228,18 @@ describe("buildMatrizCaracterizacionWorkbookBulk", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  it("escribe fecha_inicio del primer formulario en la columna FECHA INICIO", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({ ok: false, arrayBuffer: async () => new ArrayBuffer(0) }),
+    );
+    const f1 = minimalForm();
+    f1.datos_formulario = { fecha_inicio: "2026-05-01" };
+    const wb = await buildMatrizCaracterizacionWorkbookBulk([f1]);
+    const ws = wb.getWorksheet(MATRIZ_SHEET_NAME);
+    expect(ws?.getCell(8, 5).value).toBe("01/05/2026");
   });
 
   it("escribe múltiples formularios desde la fila 8 en una sola hoja", async () => {

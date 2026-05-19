@@ -1,7 +1,7 @@
 import type { FormularioSnapshot } from "@/components/form/FormularioRespuestaReadOnly";
 import { parseISODate } from "@/lib/formatDateTime";
 import type { FormReadItem } from "@/services/api";
-import type { HistorialForm, PrecargaForm } from "@/services/db";
+import type { HistorialForm, OfflineForm, PrecargaForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormValues } from "@/types/formFields";
 
 export type DisplayRow = {
@@ -226,6 +226,70 @@ export function getFechaReferenciaEnvio(row: DisplayRow): number {
     return parseISODate(row.precargaSolo.fecha_precarga);
   }
   return NaN;
+}
+
+function gpsPrecisionOrDefault(precision: number | null | undefined): number {
+  return typeof precision === "number" && precision > 0 ? precision : 1;
+}
+
+/**
+ * Datos del formulario para exportar (Excel/ZIP masivo), alineado con la vista de detalle:
+ * cola local en vivo > servidor > precarga > historial.
+ */
+export function resolveDatosFormularioForExport(
+  row: DisplayRow,
+  queued?: OfflineForm | null,
+): Record<string, unknown> {
+  if (queued?.datos_formulario) {
+    return queued.datos_formulario;
+  }
+  const serverDatos = row.server?.datos_formulario;
+  if (serverDatos && typeof serverDatos === "object") {
+    return serverDatos as Record<string, unknown>;
+  }
+  const precargaDatos = row.precargaSolo?.datos_formulario;
+  if (precargaDatos) {
+    return precargaDatos;
+  }
+  return row.historial?.datos_formulario ?? {};
+}
+
+/** GPS para exportación masiva con la misma prioridad que `resolveDatosFormularioForExport`. */
+export function resolveGpsForExport(
+  row: DisplayRow,
+  queued?: OfflineForm | null,
+): OfflineForm["gps"] {
+  if (queued?.gps) {
+    return {
+      latitud: queued.gps.latitud,
+      longitud: queued.gps.longitud,
+      precision: gpsPrecisionOrDefault(queued.gps.precision),
+    };
+  }
+  if (row.server) {
+    return {
+      latitud: row.server.latitud,
+      longitud: row.server.longitud,
+      precision: gpsPrecisionOrDefault(row.server.precision),
+    };
+  }
+  const pg = row.precargaSolo?.gps;
+  if (pg) {
+    return {
+      latitud: pg.latitud,
+      longitud: pg.longitud,
+      precision: gpsPrecisionOrDefault(pg.precision ?? undefined),
+    };
+  }
+  const hg = row.historial?.gps;
+  if (hg) {
+    return {
+      latitud: hg.latitud,
+      longitud: hg.longitud,
+      precision: gpsPrecisionOrDefault(hg.precision),
+    };
+  }
+  return { latitud: 0, longitud: 0, precision: 1 };
 }
 
 /** Nombre del beneficiario con prioridad servidor > precarga > historial local. */

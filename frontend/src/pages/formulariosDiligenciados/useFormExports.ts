@@ -1,8 +1,12 @@
 import { useCallback } from 'react';
 
 import type { FormularioSnapshot } from '@/components/form/FormularioRespuestaReadOnly';
-import type { PrecargaForm } from '@/services/db';
+import { db, type OfflineForm, type PrecargaForm } from '@/services/db';
 import type { DisplayRow } from '@/services/formHistory';
+import {
+  resolveDatosFormularioForExport,
+  resolveGpsForExport,
+} from '@/services/formHistory';
 import {
   downloadMatrizCaracterizacionBulkXlsx,
   downloadMatrizCaracterizacionXlsx,
@@ -167,39 +171,24 @@ export const useFormExports = ({
     setDescargaExcelError(null);
     setDescargandoTodosExcel(true);
     try {
+      const ids = rows.map((r) => r.id_formulario);
+      const queuedList = await db.formularios.bulkGet(ids);
+      const queuedById = new Map<string, OfflineForm>();
+      for (const q of queuedList) {
+        if (q) {
+          queuedById.set(q.id_formulario, q);
+        }
+      }
+
       const exportables = rows.map((row) => {
-        const datos =
-          (row.historial?.datos_formulario as
-            | Record<string, unknown>
-            | undefined) ??
-          (row.server?.datos_formulario as
-            | Record<string, unknown>
-            | undefined) ??
-          row.precargaSolo?.datos_formulario ??
-          {};
-        const gps = row.historial?.gps
-          ? {
-              latitud: row.historial.gps.latitud,
-              longitud: row.historial.gps.longitud,
-              precision:
-                typeof row.historial.gps.precision === 'number' &&
-                row.historial.gps.precision > 0
-                  ? row.historial.gps.precision
-                  : 1,
-            }
-          : row.server
-            ? {
-                latitud: row.server.latitud,
-                longitud: row.server.longitud,
-                precision:
-                  typeof row.server.precision === 'number' &&
-                  row.server.precision > 0
-                    ? row.server.precision
-                    : 1,
-              }
-            : { latitud: 0, longitud: 0, precision: 1 };
+        const queued = queuedById.get(row.id_formulario);
+        const datos = resolveDatosFormularioForExport(row, queued);
+        const gps = resolveGpsForExport(row, queued);
         const fotos = (
-          row.historial?.fotos ?? row.precargaSolo?.fotos ?? []
+          queued?.fotos ??
+          row.historial?.fotos ??
+          row.precargaSolo?.fotos ??
+          []
         ).filter(
           (f): f is { nombre_archivo: string; data: string } =>
             typeof f?.data === 'string' && f.data.trim() !== '',
@@ -207,8 +196,12 @@ export const useFormExports = ({
         return {
           id_formulario: row.id_formulario,
           id_usuario:
-            row.server?.id_usuario ?? row.historial?.id_usuario ?? 'sin_usuario',
+            queued?.id_usuario ??
+            row.server?.id_usuario ??
+            row.historial?.id_usuario ??
+            'sin_usuario',
           fecha_hora:
+            queued?.fecha_hora ??
             row.server?.fecha_hora ??
             row.historial?.fecha_envio ??
             row.historial?.fecha_hora ??
@@ -236,40 +229,23 @@ export const useFormExports = ({
     setDescargaFotosError(null);
     setDescargandoTodasFotos(true);
     try {
+      const ids = rows.map((r) => r.id_formulario);
+      const queuedList = await db.formularios.bulkGet(ids);
+      const queuedById = new Map<string, OfflineForm>();
+      for (const q of queuedList) {
+        if (q) {
+          queuedById.set(q.id_formulario, q);
+        }
+      }
+
       const exportables = [];
       for (const row of rows) {
-        const datos =
-          (row.historial?.datos_formulario as
-            | Record<string, unknown>
-            | undefined) ??
-          (row.server?.datos_formulario as
-            | Record<string, unknown>
-            | undefined) ??
-          row.precargaSolo?.datos_formulario ??
-          {};
-        const gps = row.historial?.gps
-          ? {
-              latitud: row.historial.gps.latitud,
-              longitud: row.historial.gps.longitud,
-              precision:
-                typeof row.historial.gps.precision === 'number' &&
-                row.historial.gps.precision > 0
-                  ? row.historial.gps.precision
-                  : 1,
-            }
-          : row.server
-            ? {
-                latitud: row.server.latitud,
-                longitud: row.server.longitud,
-                precision:
-                  typeof row.server.precision === 'number' &&
-                  row.server.precision > 0
-                    ? row.server.precision
-                    : 1,
-              }
-            : { latitud: 0, longitud: 0, precision: 1 };
+        const queued = queuedById.get(row.id_formulario);
+        const datos = resolveDatosFormularioForExport(row, queued);
+        const gps = resolveGpsForExport(row, queued);
         let fotos = fotosConVisitaDesdeDetalle(
-          (row.historial?.fotos ??
+          (queued?.fotos ??
+            row.historial?.fotos ??
             row.precargaSolo?.fotos ??
             []) as FotoSnapshotLike[],
         );
@@ -277,8 +253,12 @@ export const useFormExports = ({
         exportables.push({
           id_formulario: row.id_formulario,
           id_usuario:
-            row.server?.id_usuario ?? row.historial?.id_usuario ?? 'sin_usuario',
+            queued?.id_usuario ??
+            row.server?.id_usuario ??
+            row.historial?.id_usuario ??
+            'sin_usuario',
           fecha_hora:
+            queued?.fecha_hora ??
             row.server?.fecha_hora ??
             row.historial?.fecha_envio ??
             row.historial?.fecha_hora ??

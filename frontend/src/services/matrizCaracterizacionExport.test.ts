@@ -158,11 +158,11 @@ describe("matrizCaracterizacionFilename", () => {
 });
 
 describe("matrizCaracterizacionBulkFilename", () => {
-  it("genera nombre consolidado con fecha/hora UTC", () => {
+  it("genera nombre consolidado solo con fecha UTC", () => {
     const name = matrizCaracterizacionBulkFilename(
       new Date("2026-05-05T17:42:10.000Z"),
     );
-    expect(name).toBe("Formularios_diligenciados_2026-05-05_17-42.xlsx");
+    expect(name).toBe("Formularios_diligenciados_2026-05-05.xlsx");
   });
 });
 
@@ -386,7 +386,7 @@ describe("downloadMatrizCaracterizacionBulkXlsx", () => {
     await downloadMatrizCaracterizacionBulkXlsx([f]);
 
     expect(mockAnchor.download).toMatch(
-      /^Formularios_diligenciados_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}\.xlsx$/,
+      /^Formularios_diligenciados_\d{4}-\d{2}-\d{2}\.xlsx$/,
     );
     expect(clickSpy).toHaveBeenCalledTimes(1);
     expect(revokeSpy).toHaveBeenCalledWith("blob:test-matriz-bulk");

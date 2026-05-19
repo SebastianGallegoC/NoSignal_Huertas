@@ -280,9 +280,7 @@ export function matrizCaracterizacionBulkFilename(date = new Date()): string {
   const y = date.getUTCFullYear();
   const m = String(date.getUTCMonth() + 1).padStart(2, "0");
   const day = String(date.getUTCDate()).padStart(2, "0");
-  const hh = String(date.getUTCHours()).padStart(2, "0");
-  const mm = String(date.getUTCMinutes()).padStart(2, "0");
-  return `Formularios_diligenciados_${y}-${m}-${day}_${hh}-${mm}.xlsx`;
+  return `Formularios_diligenciados_${y}-${m}-${day}.xlsx`;
 }
 
 async function loadTemplateWorkbook(): Promise<ExcelJS.Workbook | null> {

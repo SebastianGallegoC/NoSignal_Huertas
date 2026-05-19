@@ -1,7 +1,12 @@
 import ExcelJS from "exceljs";
 
+import { GPS_PLACEHOLDER_WHEN_NOT_CAPTURED } from "@/constants/gpsConfig";
+import { normalizeCoordNumericCell } from "@/lib/coordNumericToken";
 import type { OfflineForm } from "@/services/db";
 import type { FormFieldKey } from "@/types/formFields";
+
+const GMS_X_KEYS = ["x_grados", "x_minutos", "x_segundos"] as const;
+const GMS_Y_KEYS = ["y_grados", "y_minutos", "y_segundos"] as const;
 
 /** Hoja y columnas alineadas con `MATRIZ DE CARACTERIZACIÓN.xlsx` → pestaña F-PSA-08, fila 7. */
 export const MATRIZ_SHEET_NAME = "F-PSA-08";
@@ -98,6 +103,86 @@ function strFromDatos(
     return "";
   }
   return String(v).trim();
+}
+
+function coordTokenFromDatos(
+  datos: Record<string, unknown>,
+  key: FormFieldKey,
+): string {
+  return normalizeCoordNumericCell(strFromDatos(datos, key));
+}
+
+/** GPS sin captura real (0,0 de relleno para el API); no debe volcarse al Excel. */
+export function isGpsPlaceholderForExport(gps: OfflineForm["gps"]): boolean {
+  return (
+    gps.latitud === GPS_PLACEHOLDER_WHEN_NOT_CAPTURED.latitud &&
+    gps.longitud === GPS_PLACEHOLDER_WHEN_NOT_CAPTURED.longitud
+  );
+}
+
+function isGmsAxisEmpty(
+  datos: Record<string, unknown>,
+  axis: "x" | "y",
+): boolean {
+  const keys = axis === "x" ? GMS_X_KEYS : GMS_Y_KEYS;
+  return keys.every((k) => {
+    const t = coordTokenFromDatos(datos, k);
+    return t === "" || t === "0";
+  });
+}
+
+/** Valor de celda para grados/minutos/segundos y decimales; vacío si no hay dato. */
+export function coordFieldForMatrizExport(
+  datos: Record<string, unknown>,
+  key: FormFieldKey,
+): string {
+  const token = coordTokenFromDatos(datos, key);
+  if (token === "") {
+    return "";
+  }
+  if (
+    key === "x_grados" ||
+    key === "x_minutos" ||
+    key === "x_segundos"
+  ) {
+    if (isGmsAxisEmpty(datos, "x")) {
+      return "";
+    }
+  }
+  if (
+    key === "y_grados" ||
+    key === "y_minutos" ||
+    key === "y_segundos"
+  ) {
+    if (isGmsAxisEmpty(datos, "y")) {
+      return "";
+    }
+  }
+  if (key === "x_minutos" || key === "x_segundos" || key === "y_minutos" || key === "y_segundos") {
+    if (token === "0") {
+      return "";
+    }
+  }
+  return token;
+}
+
+function decimalCoordForMatrizExport(
+  datos: Record<string, unknown>,
+  key: "longitud" | "latitud",
+  gps: OfflineForm["gps"],
+): string {
+  const token = coordTokenFromDatos(datos, key);
+  if (token !== "") {
+    if (token === "0" && isGpsPlaceholderForExport(gps)) {
+      return "";
+    }
+    return token;
+  }
+  if (isGpsPlaceholderForExport(gps)) {
+    return "";
+  }
+  const gpsVal = key === "longitud" ? gps.longitud : gps.latitud;
+  return Number.isFinite(gpsVal) ? String(gpsVal) : "";
 }
 
 /** Origen de cada celda de la fila 8 (76 columnas), alineado con la matriz F-PSA-08. */
@@ -220,23 +305,26 @@ export function formatFechaMatriz(raw: string): string {
 export function buildMatrizCaracterizacionRow(form: OfflineForm): string[] {
   const d = form.datos_formulario as Record<string, unknown>;
   const g = (k: FormFieldKey) => strFromDatos(d, k);
-
-  const lonStr = g("longitud");
-  const latStr = g("latitud");
-  const lon =
-    lonStr ||
-    (Number.isFinite(form.gps.longitud)
-      ? String(form.gps.longitud)
-      : "");
-  const lat =
-    latStr ||
-    (Number.isFinite(form.gps.latitud) ? String(form.gps.latitud) : "");
+  const lon = decimalCoordForMatrizExport(d, "longitud", form.gps);
+  const lat = decimalCoordForMatrizExport(d, "latitud", form.gps);
 
   return MATRIZ_ROW_CELL_SOURCES.map((src) => {
     switch (src.kind) {
       case "id_formulario":
         return form.id_formulario;
       case "field":
+        if (
+          src.key === "x_grados" ||
+          src.key === "x_minutos" ||
+          src.key === "x_segundos" ||
+          src.key === "y_grados" ||
+          src.key === "y_minutos" ||
+          src.key === "y_segundos" ||
+          src.key === "longitud" ||
+          src.key === "latitud"
+        ) {
+          return coordFieldForMatrizExport(d, src.key);
+        }
         return g(src.key);
       case "fecha":
         return formatFechaMatriz(g(src.key));

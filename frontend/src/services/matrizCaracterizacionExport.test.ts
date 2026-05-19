@@ -1,6 +1,8 @@
 import ExcelJS from "exceljs";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { GPS_PLACEHOLDER_WHEN_NOT_CAPTURED } from "@/constants/gpsConfig";
+import { COORD_NUMERIC_FIELD_KEYS } from "@/lib/coordNumericToken";
 import type { OfflineForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormFieldKey } from "@/types/formFields";
 
@@ -94,6 +96,37 @@ describe("buildMatrizCaracterizacionRow", () => {
     expect(row[33]).toContain("7.5");
   });
 
+  it("deja vacías longitud/latitud y GMS en 0 cuando no hay GPS real", () => {
+    const f = minimalForm();
+    f.gps = { ...GPS_PLACEHOLDER_WHEN_NOT_CAPTURED };
+    f.datos_formulario = {
+      x_grados: "0",
+      x_minutos: "0",
+      x_segundos: "0",
+      latitud: "4.60971",
+    };
+    const row = buildMatrizCaracterizacionRow(f);
+    expect(row[26]).toBe("");
+    expect(row[27]).toBe("");
+    expect(row[28]).toBe("");
+    expect(row[29]).toBe("");
+    expect(row[33]).toBe("4.60971");
+  });
+
+  it("exporta minutos/segundos vacíos en lugar de 0 cuando no se diligenciaron", () => {
+    const f = minimalForm();
+    f.gps = { ...GPS_PLACEHOLDER_WHEN_NOT_CAPTURED };
+    f.datos_formulario = {
+      x_grados: "73",
+      x_minutos: "0",
+      x_segundos: "0",
+    };
+    const row = buildMatrizCaracterizacionRow(f);
+    expect(row[26]).toBe("73");
+    expect(row[27]).toBe("");
+    expect(row[28]).toBe("");
+  });
+
   it("prioriza longitud y latitud del formulario sobre el objeto gps", () => {
     const f = minimalForm();
     f.datos_formulario = {
@@ -108,6 +141,16 @@ describe("buildMatrizCaracterizacionRow", () => {
   it("alinea cada columna con MATRIZ_ROW_CELL_SOURCES cuando los datos llevan prefijo único", () => {
     const datos: Record<string, string> = {};
     for (const k of REQUIRED_FIELDS) {
+      if (COORD_NUMERIC_FIELD_KEYS.has(k)) {
+        if (k === "longitud") {
+          datos[k] = "-74.1";
+        } else if (k === "latitud") {
+          datos[k] = "4.6";
+        } else {
+          datos[k] = "12";
+        }
+        continue;
+      }
       datos[k] = `v:${k}`;
     }
     const f = minimalForm();
@@ -120,6 +163,10 @@ describe("buildMatrizCaracterizacionRow", () => {
         return;
       }
       if (src.kind === "field") {
+        if (COORD_NUMERIC_FIELD_KEYS.has(src.key)) {
+          expect(row[i]).toBe(datos[src.key]);
+          return;
+        }
         expect(row[i]).toBe(`v:${src.key}`);
         return;
       }
@@ -128,11 +175,11 @@ describe("buildMatrizCaracterizacionRow", () => {
         return;
       }
       if (src.kind === "lon") {
-        expect(row[i]).toBe("v:longitud");
+        expect(row[i]).toBe("-74.1");
         return;
       }
       if (src.kind === "lat") {
-        expect(row[i]).toBe("v:latitud");
+        expect(row[i]).toBe("4.6");
       }
     });
   });

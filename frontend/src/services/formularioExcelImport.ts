@@ -16,6 +16,7 @@ import {
   COORD_NUMERIC_FIELD_KEYS,
   normalizeCoordNumericCell,
 } from "@/lib/coordNumericToken";
+import { stripGmsKeysFromDatos } from "@/lib/stripGmsFromDatos";
 import { normalizeDistanciaInfraestructuraMetersCell } from "@/lib/distanciaInfraestructuraNormalize";
 import { normalizeTelefonoStoredValue } from "@/lib/telefonoNormalize";
 import {
@@ -321,11 +322,10 @@ function parseCoord(s: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Decimal en celdas LONGITUD/LATITUD; no se infiere desde GMS para no inventar datos. */
-function mergeLonLatWithDms(
+/** Decimal en celdas LONGITUD/LATITUD de la plantilla (grados decimales WGS84). */
+function mergeLonLatFromCells(
   lonStr: string,
   latStr: string,
-  _datos: Record<string, unknown>,
 ): { lon: number | null; lat: number | null } {
   return { lon: parseCoord(lonStr), lat: parseCoord(latStr) };
 }
@@ -389,7 +389,7 @@ function rowToOfflineForm(
     };
   }
 
-  const { lon, lat } = mergeLonLatWithDms(lonStr, latStr, datos);
+  const { lon, lat } = mergeLonLatFromCells(lonStr, latStr);
   const gps: OfflineForm["gps"] =
     lon != null && lat != null
       ? { latitud: lat, longitud: lon, precision: 5 }
@@ -402,13 +402,15 @@ function rowToOfflineForm(
     datos.latitud = lat.toFixed(6);
   }
 
+  const datosLimpios = stripGmsKeysFromDatos(datos);
+
   const form: OfflineForm = {
     id_formulario: idFormulario,
     modo_coordenadas: "manual",
     fecha_hora: nowIso,
     fecha_actualizacion: nowIso,
     gps,
-    datos_formulario: datos,
+    datos_formulario: datosLimpios,
     fotos: [],
     estado_sincronizacion: "PENDIENTE",
   };
@@ -471,12 +473,7 @@ export function analyzeImportRow(
 
   const lonTrim = lonStr.trim();
   const latTrim = latStr.trim();
-  const datosForDms = displayValues as unknown as Record<string, unknown>;
-  const { lon: mergedLon, lat: mergedLat } = mergeLonLatWithDms(
-    lonStr,
-    latStr,
-    datosForDms,
-  );
+  const { lon: mergedLon, lat: mergedLat } = mergeLonLatFromCells(lonStr, latStr);
   if (mergedLon != null) {
     displayValues = { ...displayValues, longitud: mergedLon.toFixed(6) };
   }
@@ -547,6 +544,19 @@ export function analyzeImportRow(
   };
 }
 
+/** Plantilla antigua (76 cols) tenía GMS en columnas 27–32; la actual usa LAT/LON/MSNM ahí. */
+function isLegacyGmsPlantillaHeader(ws: Worksheet): boolean {
+  const h27 = cellValueToImportString(ws.getCell(7, 27)).toUpperCase();
+  const h28 = cellValueToImportString(ws.getCell(7, 28)).toUpperCase();
+  const looksGms =
+    (h27.includes("GRADO") || h27.includes("MINUTO") || h27.includes("SEGUNDO")) &&
+    !h27.includes("LATIT");
+  const looksGmsY =
+    (h28.includes("GRADO") || h28.includes("MINUTO") || h28.includes("SEGUNDO")) &&
+    !h28.includes("LONGIT");
+  return looksGms || looksGmsY;
+}
+
 async function loadPlantillaSheet(
   buffer: ArrayBuffer,
 ): Promise<{ worksheet: Worksheet } | { error: ImportRowError }> {
@@ -555,6 +565,15 @@ async function loadPlantillaSheet(
   const ws = wb.getWorksheet(MATRIZ_SHEET_NAME) ?? wb.worksheets[0];
   if (!ws) {
     return { error: { row: 0, message: "El archivo no contiene hojas." } };
+  }
+  if (isLegacyGmsPlantillaHeader(ws)) {
+    return {
+      error: {
+        row: 7,
+        message:
+          "El archivo parece usar la plantilla antigua (76 columnas con coordenadas GMS). Descargá la plantilla actual (71 columnas, grados decimales) desde PLANTILLA.xlsx e importá de nuevo.",
+      },
+    };
   }
   return { worksheet: ws };
 }

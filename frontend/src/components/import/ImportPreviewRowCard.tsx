@@ -23,6 +23,7 @@ type PreviewFieldProps = {
   value: string;
   error?: string;
   multiline?: boolean;
+  inputType?: "text" | "date";
   onChange: (value: string) => void;
 };
 
@@ -31,6 +32,7 @@ const PreviewField = ({
   value,
   error,
   multiline,
+  inputType = "text",
   onChange,
 }: PreviewFieldProps) => {
   const invalid = Boolean(error);
@@ -39,7 +41,7 @@ const PreviewField = ({
     : "border-slate-200";
 
   return (
-    <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800 md:col-span-2">
+    <label className="flex min-w-0 max-w-full flex-col text-sm font-medium text-slate-800 md:col-span-2">
       {label}
       {multiline ? (
         <textarea
@@ -50,7 +52,8 @@ const PreviewField = ({
         />
       ) : (
         <input
-          className={`${inputBase} ${ring}`}
+          type={inputType}
+          className={`${inputBase} ${inputType === "date" ? "form-date-input" : ""} ${ring}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
@@ -140,6 +143,7 @@ export const ImportPreviewRowCard = ({
                   const fk = field as FormFieldKey;
                   const kind = inputKindForField(fk);
                   const multiline = kind === "textarea";
+                  const isDate = kind === "date";
                   const err =
                     fk === "longitud"
                       ? fieldErrors.longitud
@@ -185,6 +189,7 @@ export const ImportPreviewRowCard = ({
                       value={displayValues[fk] ?? ""}
                       error={err}
                       multiline={multiline}
+                      inputType={isDate ? "date" : "text"}
                       onChange={(v) =>
                         onPatch(sheetRow, { displayValues: { [fk]: v } })
                       }

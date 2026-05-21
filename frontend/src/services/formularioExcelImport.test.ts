@@ -356,6 +356,40 @@ describe("parsePlantillaWorkbook", () => {
     expect(rows[0].displayValues.latitud).toBe("4.609710");
   });
 
+  it("rechaza plantilla antigua con encabezados GMS en columnas 27–28", async () => {
+    const wb = new Workbook();
+    const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
+    ws.getCell(7, 27).value = "X GRADOS";
+    ws.getCell(7, 28).value = "X MINUTOS";
+    ws.getCell(8, 7).value = "Benef legacy";
+    ws.getCell(8, 27).value = "73";
+    ws.getCell(8, 33).value = "4.6";
+
+    const buf = await wb.xlsx.writeBuffer();
+    const u8 = new Uint8Array(buf as ArrayBuffer);
+    const buffer = u8.buffer.slice(
+      u8.byteOffset,
+      u8.byteOffset + u8.byteLength,
+    );
+
+    const { ok, errors } = await parsePlantillaWorkbook(buffer);
+    expect(ok).toHaveLength(0);
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors[0].message).toMatch(/plantilla antigua/i);
+  });
+
+  it("elimina claves GMS si vinieran en celdas de campo del Excel", async () => {
+    const row = new Array<string | number | null>(MATRIZ_COLUMN_COUNT).fill(null);
+    row[7] = "Con GMS en datos";
+    row[26] = "4.0";
+    row[27] = "-74.0";
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer);
+    expect(errors).toHaveLength(0);
+    expect(ok[0].datos_formulario).not.toHaveProperty("x_grados");
+    expect(ok[0].datos_formulario).not.toHaveProperty("y_minutos");
+  });
+
   it("normaliza «Distancia Infraestructura Adecuada» con sufijo M/m en Excel (columna ~46)", async () => {
     const row = new Array<string | number | null>(MATRIZ_COLUMN_COUNT).fill(null);
     row[7] = "Benef distancia";

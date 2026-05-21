@@ -16,23 +16,8 @@ import {
   previewPlantillaWorkbook,
 } from "@/services/formularioExcelImport";
 import { enqueueForm } from "@/services/sync";
-import { useAuthStore } from "@/store/useAuthStore";
-
-const toSafeUserId = (raw: string): string => {
-  const base = (raw || "")
-    .trim()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/\s+/g, "_")
-    .replace(/[^A-Za-z0-9._-]/g, "")
-    .replace(/_+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, 64);
-  return base || "sin_usuario";
-};
 
 export const ImportarFormulariosPage = () => {
-  const authUsername = useAuthStore((s) => s.username);
   const [busy, setBusy] = useState(false);
   const [busyImport, setBusyImport] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -191,7 +176,7 @@ export const ImportarFormulariosPage = () => {
     } finally {
       setBusyImport(false);
     }
-  }, [authUsername, previewRows, resetPreview]);
+  }, [previewRows, resetPreview]);
 
   const globalPreviewError =
     previewErrors.length > 0 ? previewErrors[0] : null;
@@ -229,8 +214,10 @@ export const ImportarFormulariosPage = () => {
           <ul className="mt-3 list-inside list-disc text-sm text-slate-600">
             <li>
               Solo se cargan los <strong>campos del formulario</strong> (no hay
-              fotos). Cada fila debe incluir <strong>LONGITUD</strong> y{" "}
-              <strong>LATITUD</strong> numéricas.
+              fotos). Coordenadas en <strong>grados decimales</strong>: columnas{" "}
+              <strong>LATITUD</strong>, <strong>LONGITUD</strong> y{" "}
+              <strong>METROS SOBRE EL NIVEL DEL MAR</strong> (plantilla de 71
+              columnas; la versión antigua con GMS no es compatible).
             </li>
             <li>
               La columna <strong>ID</strong> del Excel es solo referencia (p. ej.
@@ -260,11 +247,6 @@ export const ImportarFormulariosPage = () => {
               }}
             />
           </label>
-          <p className="mt-2 text-xs text-slate-500">
-            Usuario asociado:{" "}
-            <span className="font-mono text-slate-700">{authUsername ?? "—"}</span>{" "}
-            ({toSafeUserId(authUsername ?? "")})
-          </p>
           {fileLabel ? (
             <p className="mt-2 text-xs text-slate-600">
               Archivo: <span className="font-medium">{fileLabel}</span>

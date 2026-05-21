@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import type { UseFormSetValue } from 'react-hook-form';
 
+import { formatGpsCoordDecimal } from '@/lib/coordNumericToken';
 import type { FormValues } from '@/types/formFields';
 
 type GpsCoords = { latitud: number; longitud: number; precision: number } | null;
@@ -23,7 +24,7 @@ export const useGpsFormFields = ({
       return;
     }
 
-    setValue('longitud', gps.longitud.toFixed(6));
-    setValue('latitud', gps.latitud.toFixed(6));
+    setValue('longitud', formatGpsCoordDecimal(gps.longitud));
+    setValue('latitud', formatGpsCoordDecimal(gps.latitud));
   }, [gps, modoCoordenadas, setValue]);
 };

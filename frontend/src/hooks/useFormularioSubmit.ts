@@ -16,6 +16,11 @@ import {
   joinValidationMessages,
   validateOfflineFormPayload,
 } from "@/services/formValidation";
+import {
+  formatCoordForDatosFormulario,
+  normalizeCoordNumericCell,
+  roundCoordDecimal,
+} from "@/lib/coordNumericToken";
 import type { FormFieldKey, FormValues } from "@/types/formFields";
 import {
   GPS_PLACEHOLDER_WHEN_NOT_CAPTURED,
@@ -59,13 +64,47 @@ type BuildPayloadArgs = {
 export const buildDatosFormulario = (
   values: FormValues,
   requiredFields: readonly FormFieldKey[],
+  modoCoordenadas: "automatico" | "manual" = "automatico",
 ): Record<string, unknown> => {
   const datos_formulario: Record<string, unknown> = {};
   for (const key of requiredFields) {
+    if (key === "latitud" || key === "longitud") {
+      const raw = values[key];
+      datos_formulario[key] =
+        typeof raw === "string" && raw.trim() !== ""
+          ? formatCoordForDatosFormulario(raw, modoCoordenadas)
+          : raw;
+      continue;
+    }
     datos_formulario[key] = values[key];
   }
   return datos_formulario;
 };
+
+function gpsCoordsFromPayload(
+  values: FormValues,
+  gpsResolved: { latitud: number; longitud: number; precision: number },
+  modoCoordenadas: "automatico" | "manual",
+): { latitud: number; longitud: number; precision: number } {
+  if (modoCoordenadas === "manual") {
+    const latStr = normalizeCoordNumericCell(String(values.latitud ?? ""));
+    const lonStr = normalizeCoordNumericCell(String(values.longitud ?? ""));
+    const lat = Number.parseFloat(latStr);
+    const lon = Number.parseFloat(lonStr);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      return {
+        latitud: lat,
+        longitud: lon,
+        precision: gpsResolved.precision,
+      };
+    }
+  }
+  return {
+    latitud: roundCoordDecimal(gpsResolved.latitud),
+    longitud: roundCoordDecimal(gpsResolved.longitud),
+    precision: gpsResolved.precision,
+  };
+}
 
 export const buildOfflinePayload = ({
   values,
@@ -90,14 +129,17 @@ export const buildOfflinePayload = ({
     fecha_hora: fechaPrimerEnvio,
     fecha_actualizacion: fechaActualizacion,
     gps: {
-      latitud: gpsResolved.latitud,
-      longitud: gpsResolved.longitud,
+      ...gpsCoordsFromPayload(values, gpsResolved, modoCoordenadas),
       precision: Math.max(
         MIN_GPS_PRECISION_METERS,
         Math.min(gpsResolved.precision, MAX_GPS_PRECISION_METERS),
       ),
     },
-    datos_formulario: buildDatosFormulario(values, requiredFields),
+    datos_formulario: buildDatosFormulario(
+      values,
+      requiredFields,
+      modoCoordenadas,
+    ),
     fotos,
     estado_sincronizacion: "PENDIENTE",
   };

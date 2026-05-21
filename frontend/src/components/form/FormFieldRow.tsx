@@ -129,19 +129,22 @@ export const FormFieldRow = ({
   const isPositiveInt = name === "estrato" || name === "usuario_cens";
   const isSatisfaccion = name === "satisfaccion_1_5";
   const isGpsDerivedField = name === "latitud" || name === "longitud";
+  const isManualCoordField = isGpsDerivedField && editableGpsFields;
   const isReadOnly = isGpsDerivedField && !editableGpsFields;
   const gpsReadOnlyClass = isReadOnly ? " bg-slate-100 text-slate-600" : "";
+  const inputType = isManualCoordField ? "text" : type;
 
   return (
     <label className="flex min-w-0 flex-col text-sm font-medium text-slate-800">
       {label}
       <input
         className={`${inputClass}${gpsReadOnlyClass}`}
-        type={type}
+        type={inputType}
+        inputMode={isManualCoordField ? "decimal" : undefined}
         min={isPositiveInt || isSatisfaccion ? 1 : undefined}
         max={isSatisfaccion ? 5 : undefined}
         step={
-          type === "number"
+          type === "number" && !isManualCoordField
             ? isPositiveInt || isSatisfaccion
               ? 1
               : "any"
@@ -151,8 +154,8 @@ export const FormFieldRow = ({
         title={
           isGpsDerivedField
             ? isReadOnly
-              ? "Este campo se actualiza al tomar ubicación GPS."
-              : "Este campo puede editarse manualmente."
+              ? "Este campo se actualiza al tomar ubicación GPS (6 decimales)."
+              : "Podés ingresar las coordenadas con la precisión decimal que necesites."
             : undefined
         }
         {...register(name)}

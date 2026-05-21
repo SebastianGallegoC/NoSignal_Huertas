@@ -51,6 +51,56 @@ describe("useFormularioSubmit helpers", () => {
     expect(payload.modo_coordenadas).toBe("automatico");
   });
 
+  it("modo manual conserva decimales en datos_formulario y gps", () => {
+    const values = buildEmptyValues();
+    values.nombres_apellidos_beneficiario = "B";
+    values.latitud = "4.6097";
+    values.longitud = "-74.08";
+
+    const payload = buildOfflinePayload({
+      values,
+      requiredFields: REQUIRED_FIELDS,
+      formId: "form-decimals",
+      originalFechaHora: null,
+      idUsuario: "demo",
+      authUsername: null,
+      gps: { latitud: 4.6097123456, longitud: -74.081751234, precision: 1 },
+      fotos: [],
+      toSafeUserId: (raw) => raw,
+      modoCoordenadas: "manual",
+    });
+
+    expect(payload.datos_formulario.latitud).toBe("4.6097");
+    expect(payload.datos_formulario.longitud).toBe("-74.08");
+    expect(payload.gps.latitud).toBe(4.6097);
+    expect(payload.gps.longitud).toBe(-74.08);
+  });
+
+  it("modo automático redondea gps y datos a 6 decimales", () => {
+    const values = buildEmptyValues();
+    values.nombres_apellidos_beneficiario = "B";
+    values.latitud = "4.6097123456";
+    values.longitud = "-74.081751234";
+
+    const payload = buildOfflinePayload({
+      values,
+      requiredFields: REQUIRED_FIELDS,
+      formId: "form-gps-6",
+      originalFechaHora: null,
+      idUsuario: "demo",
+      authUsername: null,
+      gps: { latitud: 4.6097123456, longitud: -74.081751234, precision: 1 },
+      fotos: [],
+      toSafeUserId: (raw) => raw,
+      modoCoordenadas: "automatico",
+    });
+
+    expect(payload.datos_formulario.latitud).toBe("4.609712");
+    expect(payload.datos_formulario.longitud).toBe("-74.081751");
+    expect(payload.gps.latitud).toBe(4.609712);
+    expect(payload.gps.longitud).toBe(-74.081751);
+  });
+
   it("buildOfflinePayload persiste modo_coordenadas manual", () => {
     const values = buildEmptyValues();
     values.nombre_actividad = "Actividad";

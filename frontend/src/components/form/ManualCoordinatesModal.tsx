@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { formatCoordDecimalFromCell } from "@/lib/coordNumericToken";
 
 type Props = {
   isOpen: boolean;
@@ -39,8 +40,14 @@ export const ManualCoordinatesModal = ({
       return;
     }
 
-    const latNum = parseFloat(lat);
-    const lonNum = parseFloat(lon);
+    const latFormatted = formatCoordDecimalFromCell(lat);
+    const lonFormatted = formatCoordDecimalFromCell(lon);
+    if (!latFormatted || !lonFormatted) {
+      setError("Ingresa coordenadas decimales válidas.");
+      return;
+    }
+    const latNum = Number.parseFloat(latFormatted);
+    const lonNum = Number.parseFloat(lonFormatted);
     const precisionNum = parseFloat(precision) || 0;
 
     // Validar rango de latitud (-90 a 90)
@@ -89,8 +96,8 @@ export const ManualCoordinatesModal = ({
               Latitud (-90 a 90)
             </label>
             <input
-              type="number"
-              step="0.000001"
+              type="text"
+              inputMode="decimal"
               placeholder="ej: 4.710989"
               value={lat}
               onChange={(e) => setLat(e.target.value)}
@@ -103,8 +110,8 @@ export const ManualCoordinatesModal = ({
               Longitud (-180 a 180)
             </label>
             <input
-              type="number"
-              step="0.000001"
+              type="text"
+              inputMode="decimal"
               placeholder="ej: -74.009008"
               value={lon}
               onChange={(e) => setLon(e.target.value)}

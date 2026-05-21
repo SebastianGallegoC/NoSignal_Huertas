@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
+import { ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 import {
@@ -336,37 +337,38 @@ export const FormularioPage = () => {
               {isOnline ? "online" : "offline"}
             </p>
           </div>
-          <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:gap-6">
-            <div className="flex min-w-0 flex-wrap gap-2">
-              <Link to="/inicio" className="inline-flex">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-slate-200"
-                >
-                  Regresar
-                </Button>
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+              className="shrink-0 border-slate-200 text-slate-800"
+            >
+              <Link
+                to="/inicio"
+                aria-label="Regresar al inicio"
+                title="Regresar"
+              >
+                <ArrowLeft size={16} strokeWidth={2} aria-hidden />
               </Link>
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void sincronizarAhora()}
+              disabled={sincronizando}
+              className="min-w-0 flex-1 bg-slate-900 text-white hover:bg-slate-800 sm:flex-none"
+            >
+              {sincronizando ? "Sincronizando…" : "Sincronizar ahora"}
+            </Button>
+            {hayContenidoDiligenciado ? (
               <Button
                 type="button"
-                onClick={() => void sincronizarAhora()}
-                disabled={sincronizando}
-                className="bg-slate-900 text-white hover:bg-slate-800"
+                variant="outline"
+                className="min-w-0 shrink-0 border-amber-200 text-amber-950 hover:bg-amber-50 sm:flex-none"
+                onClick={() => setModalLimpiarAbierto(true)}
               >
-                {sincronizando ? "Sincronizando…" : "Sincronizar ahora"}
+                Limpiar
               </Button>
-            </div>
-            {hayContenidoDiligenciado ? (
-              <div className="flex shrink-0 border-l border-slate-200 pl-3 sm:pl-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-amber-200 text-amber-950 hover:bg-amber-50"
-                  onClick={() => setModalLimpiarAbierto(true)}
-                >
-                  Limpiar
-                </Button>
-              </div>
             ) : null}
           </div>
         </header>

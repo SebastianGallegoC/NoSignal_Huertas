@@ -1087,35 +1087,71 @@ export const FormulariosDiligenciadosPage = () => {
               </p>
             ) : null}
           </div>
-          <div className="page-toolbar w-full shrink-0 lg:max-w-md xl:max-w-lg">
-            <div className="page-toolbar-icons">
-              <Button
-                variant="outline"
-                size="icon"
-                asChild
-                className="text-slate-800"
-              >
-                <Link
-                  to="/inicio"
-                  aria-label="Volver al inicio"
-                  title="Volver al inicio"
+          <div className="page-toolbar w-full shrink-0 lg:max-w-lg xl:max-w-xl">
+            <div className="page-toolbar-top">
+              <div className="page-toolbar-nav">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  asChild
+                  className="border-slate-200 text-slate-800"
                 >
-                  <ArrowLeft size={16} strokeWidth={2} aria-hidden />
-                </Link>
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={() => window.location.reload()}
-                className="text-slate-800"
-                aria-label="Recargar página"
-                title="Recargar"
-              >
-                <RefreshCw size={16} strokeWidth={2} aria-hidden />
-              </Button>
+                  <Link
+                    to="/inicio"
+                    aria-label="Volver al inicio"
+                    title="Volver al inicio"
+                  >
+                    <ArrowLeft size={16} strokeWidth={2} aria-hidden />
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => window.location.reload()}
+                  className="border-slate-200 text-slate-800"
+                  aria-label="Recargar página"
+                  title="Recargar"
+                >
+                  <RefreshCw size={16} strokeWidth={2} aria-hidden />
+                </Button>
+              </div>
+              <div className="page-toolbar-downloads">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void descargarExcelDeTodos()}
+                  disabled={descargandoTodosExcel || !online}
+                  className="toolbar-btn"
+                  title={
+                    !online
+                      ? "Requiere conexión a internet"
+                      : "Descargar Excel de todos los formularios"
+                  }
+                >
+                  {descargandoTodosExcel
+                    ? "Descargando Excel…"
+                    : "Excel (todos)"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void descargarFotosDeTodos()}
+                  disabled={descargandoTodasFotos || !online}
+                  className="toolbar-btn"
+                  title={
+                    !online
+                      ? "Requiere conexión a internet"
+                      : "Descargar fotos de todos los formularios"
+                  }
+                >
+                  {descargandoTodasFotos
+                    ? "Descargando fotos…"
+                    : "Fotos (todos)"}
+                </Button>
+              </div>
             </div>
-            <div className="page-toolbar-actions">
+            <div className="page-toolbar-block">
               <Button
                 type="button"
                 variant="outline"
@@ -1133,7 +1169,7 @@ export const FormulariosDiligenciadosPage = () => {
                   eliminandoPrecargaId !== null
                 }
                 title={!online ? "Requiere conexión a internet" : undefined}
-                className="toolbar-btn toolbar-full-row border-amber-200 text-amber-950 hover:bg-amber-50"
+                className="toolbar-btn border-amber-200 text-amber-950 hover:bg-amber-50"
               >
                 {eliminandoTodasPrecargas
                   ? "Quitando precargas…"
@@ -1141,38 +1177,8 @@ export const FormulariosDiligenciadosPage = () => {
                     ? "Quitar todas las precargas"
                     : `Quitar todas las precargas (${precargas.length})`}
               </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void descargarExcelDeTodos()}
-                disabled={descargandoTodosExcel || !online}
-                className="toolbar-btn"
-                title={
-                  !online
-                    ? "Requiere conexión a internet"
-                    : "Descargar Excel de todos los formularios"
-                }
-              >
-                {descargandoTodosExcel
-                  ? "Descargando Excel…"
-                  : "Excel (todos)"}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void descargarFotosDeTodos()}
-                disabled={descargandoTodasFotos || !online}
-                className="toolbar-btn"
-                title={
-                  !online
-                    ? "Requiere conexión a internet"
-                    : "Descargar fotos de todos los formularios"
-                }
-              >
-                {descargandoTodasFotos
-                  ? "Descargando fotos…"
-                  : "Fotos (todos)"}
-              </Button>
+            </div>
+            <div className="page-toolbar-block">
               <Button
                 type="button"
                 variant="outline"
@@ -1195,7 +1201,7 @@ export const FormulariosDiligenciadosPage = () => {
                       ? "Iniciá sesión para borrar formularios del servidor"
                       : undefined
                 }
-                className="toolbar-btn toolbar-full-row border-rose-300 text-rose-900 hover:bg-rose-50"
+                className="toolbar-btn border-rose-300 text-rose-900 hover:bg-rose-50"
               >
                 {eliminandoTodosFormularios
                   ? "Eliminando…"

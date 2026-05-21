@@ -77,22 +77,30 @@
 
   /* Toolbar del encabezado (Formularios diligenciados) */
   .page-toolbar {
-    @apply flex w-full min-w-0 max-w-full flex-col gap-2.5 overflow-x-clip;
+    @apply flex w-full min-w-0 max-w-full flex-col gap-2 overflow-x-clip rounded-2xl border border-slate-200/90 bg-white/90 p-2.5 shadow-sm sm:p-3;
   }
 
-  .page-toolbar-icons {
-    @apply flex shrink-0 items-center justify-end gap-1.5;
+  .page-toolbar-top {
+    @apply flex min-w-0 flex-wrap items-center gap-2;
   }
 
-  .page-toolbar-actions {
-    @apply grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2;
+  .page-toolbar-nav {
+    @apply flex shrink-0 items-center gap-1.5 border-r border-slate-200 pr-2;
   }
 
-  .page-toolbar-actions > .toolbar-full-row {
-    @apply sm:col-span-2;
+  .page-toolbar-downloads {
+    @apply flex min-w-0 flex-1 flex-wrap items-stretch gap-2;
   }
 
-  .page-toolbar-actions .toolbar-btn {
-    @apply h-auto min-h-9 w-full justify-center whitespace-normal px-3 py-2 text-center text-xs leading-snug sm:text-sm;
+  .page-toolbar .toolbar-btn {
+    @apply h-auto min-h-9 justify-center whitespace-normal px-3 py-2 text-center text-xs leading-snug sm:text-sm;
+  }
+
+  .page-toolbar-downloads .toolbar-btn {
+    @apply min-w-[6.5rem] flex-1 sm:flex-none;
+  }
+
+  .page-toolbar-block .toolbar-btn {
+    @apply w-full;
   }
 }

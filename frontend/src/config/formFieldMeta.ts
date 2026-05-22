@@ -4,7 +4,6 @@ import { fieldSelectOptions } from '@/config/formSelectOptions';
 const TRI_FIELDS = new Set<FormFieldKey>([
   'mujer_cabeza_hogar',
   'persona_discapacidad',
-  'exposicion_solar_adecuada',
   'interes_autoconsumo',
   'interes_comercializacion',
   'asistencia_capacitaciones',
@@ -30,7 +29,6 @@ const NUMBER_FIELDS = new Set<FormFieldKey>([
   'metros_sobre_nivel_mar',
   'estrato',
   'usuario_cens',
-  'distancia_infraestructura_adecuada',
 ]);
 
 export type InputKind = 'date' | 'number' | 'select' | 'select-tri' | 'textarea' | 'text';
@@ -82,7 +80,7 @@ export const fieldLabel = (field: FormFieldKey): string =>
       suelo_o_recipientes: 'Suelo o Recipientes',
       satisfaccion_1_5: 'Nivel de Satisfacción 1-5',
       distancia_infraestructura_adecuada:
-        'Distancia Infraestructura Adecuada (m)',
+        'Distancia Infraestructura Adecuada',
       metros_sobre_nivel_mar: 'Metros sobre el nivel del mar',
     } as Partial<Record<FormFieldKey, string>>
   )[field] ??

@@ -21,8 +21,8 @@ import {
   normalizeCoordNumericCell,
 } from "@/lib/coordNumericToken";
 import { stripGmsKeysFromDatos } from "@/lib/stripGmsFromDatos";
-import { normalizeDistanciaInfraestructuraMetersCell } from "@/lib/distanciaInfraestructuraNormalize";
 import { normalizeTelefonoStoredValue } from "@/lib/telefonoNormalize";
+import { normalizeZonaImportValue } from "@/lib/zonaNormalize";
 import {
   FECHA_FORMATO_MSG,
   joinValidationMessages,
@@ -140,13 +140,12 @@ function normalizeCoordFieldsInFormValues(out: FormValues): void {
   }
 }
 
-function normalizeDistanciaInfraestructuraInFormValues(out: FormValues): void {
-  const v = out.distancia_infraestructura_adecuada;
-  if (typeof v !== "string") {
+function normalizeZonaInFormValues(out: FormValues): void {
+  const v = out.zona;
+  if (typeof v !== "string" || v.trim() === "") {
     return;
   }
-  out.distancia_infraestructura_adecuada =
-    normalizeDistanciaInfraestructuraMetersCell(v);
+  out.zona = normalizeZonaImportValue(v);
 }
 
 function isValidYmd(ymd: string): boolean {
@@ -294,15 +293,20 @@ const OPTIONAL_MATRIZ_HEADER_INDICES = new Set<number>([28]);
  * Clave = encabezado oficial normalizado.
  */
 const MATRIZ_HEADER_ALIASES: Readonly<Record<string, readonly string[]>> = {
-  [normalizeMatrizHeaderLabel("DISTANCIA DE INFRAESTRUCTURA ADECUADA (M)")]: [
+  [normalizeMatrizHeaderLabel("DISTANCIA DE INFRAESTRUCTURA ADECUADA")]: [
     normalizeMatrizHeaderLabel(
       "DISTANCIA DE INFRAESTRUCTURA ADECUADA APROXIMADA",
     ),
+    normalizeMatrizHeaderLabel("DISTANCIA DE INFRAESTRUCTURA ADECUADA (M)"),
   ],
   [normalizeMatrizHeaderLabel("DISTANCIA DE REDES ELECTRICAS ADECUADA")]: [
     normalizeMatrizHeaderLabel(
       "DISTANCIA APROXIMADA DE REDES ELECTRICAS ADECUADA",
     ),
+  ],
+  [normalizeMatrizHeaderLabel("Nº PERSONAS DEL NÚCLEO FAMILIAR")]: [
+    normalizeMatrizHeaderLabel("N° PERSONAS DEL NÚCLEO FAMILAR"),
+    normalizeMatrizHeaderLabel("N° PERSONAS DEL NÚCLEO FAMILIAR"),
   ],
 };
 
@@ -511,8 +515,8 @@ function rowToOfflineForm(
         let stored = val;
         if (COORD_NUMERIC_FIELD_KEYS.has(src.key)) {
           stored = normalizeCoordNumericCell(val);
-        } else if (src.key === "distancia_infraestructura_adecuada") {
-          stored = normalizeDistanciaInfraestructuraMetersCell(val);
+        } else if (src.key === "zona") {
+          stored = normalizeZonaImportValue(val);
         } else if (inputKindForField(src.key) === "select-tri") {
           stored = normalizeTriImportValue(val);
         } else if (SI_NO_IMPORT_NORMALIZE_FIELDS.has(src.key)) {
@@ -606,7 +610,7 @@ function cellsToFormValuesNormalized(cells: string[]): FormValues {
   }
   normalizeImportEnumerationFieldsInFormValues(out);
   normalizeCoordFieldsInFormValues(out);
-  normalizeDistanciaInfraestructuraInFormValues(out);
+  normalizeZonaInFormValues(out);
   return out;
 }
 

@@ -465,7 +465,7 @@ describe("parsePlantillaWorkbook", () => {
       "TENENCIA DEL PREDIO",
       "LONGITUD",
       "LATITUD",
-      "N° PERSONAS DEL NÚCLEO FAMILIAR",
+      "N° PERSONAS DEL NÚCLEO FAMILAR",
       "NÚMERO DE MENORES DE EDAD",
       "NÚMERO DE ADULTOS MAYORES",
       "MUJER CABEZA DE HOGAR",
@@ -512,9 +512,11 @@ describe("parsePlantillaWorkbook", () => {
       ws.getCell(7, i + 1).value = h;
     });
     ws.getCell(8, 8).value = "Benef 70 cols";
+    ws.getCell(8, 20).value = "URBANA";
     ws.getCell(8, 27).value = "-74.08175";
     ws.getCell(8, 28).value = "4.60971";
-    ws.getCell(8, 29).value = "4";
+    ws.getCell(8, 29).value = 4;
+    ws.getCell(8, 40).value = "Sol directo mañana";
     ws.getCell(8, 45).value = "40 M";
     ws.getCell(8, 46).value = "25";
 
@@ -534,16 +536,20 @@ describe("parsePlantillaWorkbook", () => {
     expect(ok[0].gps.latitud).toBeCloseTo(4.60971, 5);
     expect(ok[0].gps.longitud).toBeCloseTo(-74.08175, 5);
     expect(ok[0].datos_formulario.metros_sobre_nivel_mar).toBe("");
+    expect(ok[0].datos_formulario.zona).toBe("Urbana");
     expect(ok[0].datos_formulario.numero_personas_nucleo_familiar).toBe("4");
+    expect(ok[0].datos_formulario.exposicion_solar_adecuada).toBe(
+      "Sol directo mañana",
+    );
     expect(ok[0].datos_formulario.distancia_infraestructura_adecuada).toBe(
-      "40",
+      "40 M",
     );
     expect(ok[0].datos_formulario.distancia_redes_electricas_adecuada).toBe(
       "25",
     );
   });
 
-  it("normaliza «Distancia Infraestructura Adecuada» con sufijo M/m en Excel (columna ~46)", async () => {
+  it("conserva texto libre en distancia infraestructura al importar", async () => {
     const row = new Array<string | number | null>(MATRIZ_COLUMN_COUNT).fill(null);
     row[7] = "Benef distancia";
     row[27] = "-74.0";
@@ -554,6 +560,22 @@ describe("parsePlantillaWorkbook", () => {
     const { ok, errors } = await parsePlantillaWorkbook(buffer);
 
     expect(errors).toHaveLength(0);
-    expect(ok[0].datos_formulario.distancia_infraestructura_adecuada).toBe("40");
+    expect(ok[0].datos_formulario.distancia_infraestructura_adecuada).toBe(
+      "40 M",
+    );
+  });
+
+  it("normaliza zona en mayúsculas al importar", async () => {
+    const row = new Array<string | number | null>(MATRIZ_COLUMN_COUNT).fill(null);
+    row[7] = "Benef zona";
+    row[19] = "RURAL";
+    row[27] = "-74.0";
+    row[26] = "4.0";
+
+    const buffer = await buildMinimalPlantillaBuffer(row);
+    const { ok, errors } = await parsePlantillaWorkbook(buffer);
+
+    expect(errors).toHaveLength(0);
+    expect(ok[0].datos_formulario.zona).toBe("Rural");
   });
 });

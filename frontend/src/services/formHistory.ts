@@ -1,6 +1,6 @@
 import type { FormularioSnapshot } from "@/components/form/FormularioRespuestaReadOnly";
 import { parseISODate } from "@/lib/formatDateTime";
-import { isVisitaNumero } from "@/lib/visitaNumero";
+import { parseVisitaNumero } from "@/lib/visitaNumero";
 import type { FormReadItem } from "@/services/api";
 import type { HistorialForm, OfflineForm, PrecargaForm } from "@/services/db";
 import { REQUIRED_FIELDS, type FormValues } from "@/types/formFields";
@@ -191,8 +191,7 @@ export function mapServerFotos(
     if (p !== null && typeof p === "object" && "path" in p) {
       const path = String((p as { path: unknown }).path);
       const base = path.split(/[/\\]/).pop() || `foto_${i + 1}.jpg`;
-      const v = (p as { visita?: unknown }).visita;
-      const visita = isVisitaNumero(v) ? v : undefined;
+      const visita = parseVisitaNumero((p as { visita?: unknown }).visita);
       return {
         nombre_archivo: base,
         path,

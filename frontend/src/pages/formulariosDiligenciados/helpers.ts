@@ -1,4 +1,4 @@
-import { isVisitaNumero } from '@/lib/visitaNumero';
+import { parseVisitaNumero } from '@/lib/visitaNumero';
 import { fetchFormPhotoDataUrl } from '@/services/api';
 import type { FotoForm, HistorialForm, PrecargaForm } from '@/services/db';
 import { mapServerFotos, type DisplayRow } from '@/services/formHistory';
@@ -38,7 +38,7 @@ export function fotosConVisitaDesdeDetalle(source: FotoSnapshotLike[]): FotoForm
     if (!f.data?.trim()) {
       continue;
     }
-    const visita = isVisitaNumero(f.visita) ? f.visita : 1;
+    const visita = parseVisitaNumero(f.visita) ?? 1;
     out.push({ nombre_archivo: f.nombre_archivo, data: f.data, visita });
   }
   return out;
@@ -73,7 +73,7 @@ export async function hydrateFotosFromServerIfNeeded(
       fetched.push({
         nombre_archivo: foto.nombre_archivo,
         data,
-        visita: isVisitaNumero(foto.visita) ? foto.visita : 1,
+        visita: parseVisitaNumero(foto.visita) ?? 1,
       });
     } catch {
       // Si una foto falla, continuamos con las demas.

@@ -12,6 +12,7 @@ import {
   triOptions,
 } from "@/config/formFieldMeta";
 import { fieldSelectOptions } from "@/config/formSelectOptions";
+import { parseVisitaNumero } from "@/lib/visitaNumero";
 import type { FormFieldKey } from "@/types/formFields";
 
 const rowClass =
@@ -96,11 +97,12 @@ export const FormularioRespuestaReadOnly = ({
   snapshot: FormularioSnapshot;
 }) => {
   const { datos_formulario: datos, gps, fotos = [] } = snapshot;
-  const fotosVisita1 = fotos.filter((f) => f.visita === 1);
-  const fotosVisita2 = fotos.filter((f) => f.visita === 2);
-  const fotosVisita3 = fotos.filter((f) => f.visita === 3);
-  const fotosVisita4 = fotos.filter((f) => f.visita === 4);
-  const fotosSinVisita = fotos.filter((f) => f.visita == null);
+  const visitaDeFoto = (f: (typeof fotos)[number]) => parseVisitaNumero(f.visita);
+  const fotosVisita1 = fotos.filter((f) => visitaDeFoto(f) === 1);
+  const fotosVisita2 = fotos.filter((f) => visitaDeFoto(f) === 2);
+  const fotosVisita3 = fotos.filter((f) => visitaDeFoto(f) === 3);
+  const fotosVisita4 = fotos.filter((f) => visitaDeFoto(f) === 4);
+  const fotosSinVisita = fotos.filter((f) => visitaDeFoto(f) == null);
   const [previewFoto, setPreviewFoto] = useState<ImagePreview | null>(null);
   const [remoteSrcMap, setRemoteSrcMap] = useState<
     Record<string, string | null>

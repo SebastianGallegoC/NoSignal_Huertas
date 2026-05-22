@@ -60,7 +60,7 @@ def fotos_json_for_api_list(raw: object) -> list[Any]:
                 continue
             path = path.strip()
             v = item.get("visita")
-            if v in (1, 2, 3):
+            if v in (1, 2, 3, 4):
                 out.append({"path": path, "visita": int(v)})
             else:
                 out.append(path)

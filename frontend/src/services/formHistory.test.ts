@@ -160,6 +160,15 @@ describe("formHistory — beneficiario", () => {
     expect(b!.visita).toBeUndefined();
   });
 
+  it("mapServerFotos preserva visita 4 (string o número)", () => {
+    const out = mapServerFotos("fid", [
+      { path: "uploads/x/foto_4.jpg", visita: 4 },
+      { path: "uploads/x/foto_4b.jpg", visita: "4" },
+    ]);
+    expect(out[0]?.visita).toBe(4);
+    expect(out[1]?.visita).toBe(4);
+  });
+
   it("getBeneficiarioDisplayName lee precargaSolo", () => {
     const row: DisplayRow = {
       id_formulario: "p1",

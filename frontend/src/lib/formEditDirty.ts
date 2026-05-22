@@ -1,6 +1,6 @@
 import type { GpsDraft } from "@/services/formDraftStorage";
 import type { FotoForm } from "@/services/db";
-import { REQUIRED_FIELDS, type FormFieldKey, type FormValues } from "@/types/formFields";
+import { REQUIRED_FIELDS, type FormValues } from "@/types/formFields";
 
 export type FormularioEditBaseline = {
   formValues: FormValues;
@@ -9,13 +9,13 @@ export type FormularioEditBaseline = {
   modoCoordenadas: "automatico" | "manual";
 };
 
-function normalizeFieldValue(key: FormFieldKey, raw: unknown): string {
+function normalizeFieldValue(raw: unknown): string {
   return String(raw ?? "").trim();
 }
 
 export function formValuesEqualForEdit(a: FormValues, b: FormValues): boolean {
   for (const key of REQUIRED_FIELDS) {
-    if (normalizeFieldValue(key, a[key]) !== normalizeFieldValue(key, b[key])) {
+    if (normalizeFieldValue(a[key]) !== normalizeFieldValue(b[key])) {
       return false;
     }
   }

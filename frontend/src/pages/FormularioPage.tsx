@@ -15,6 +15,10 @@ import { FormularioOverviewPanel } from "@/components/form/FormularioOverviewPan
 import { FormFieldRow } from "@/components/form/FormFieldRow";
 import { Button } from "@/components/ui/button";
 import { FORM_SECTIONS } from "@/config/formSections";
+import {
+  hasFormularioEditChanges,
+  type FormularioEditBaseline,
+} from "@/lib/formEditDirty";
 import { handleDiligenciadoFormEnterKey } from "@/lib/formKeyboard";
 import { useConnectivityStatus } from "@/hooks/useConnectivityStatus";
 import { useGPS } from "@/hooks/useGPS";
@@ -113,6 +117,48 @@ export const FormularioPage = () => {
   });
 
   const formValues = watch();
+
+  const isEditMode = originalFechaHora != null;
+
+  const editBaseline = useMemo((): FormularioEditBaseline | null => {
+    if (!loadedDraft?.originalFechaHora) {
+      return null;
+    }
+    return {
+      formValues: initialFormValues,
+      fotos: loadedDraft.fotos ?? [],
+      gps: loadedDraft.gps ?? null,
+      modoCoordenadas: loadedDraft.modoCoordenadas ?? "automatico",
+    };
+  }, [initialFormValues, loadedDraft]);
+
+  const hasEditChanges = useMemo(() => {
+    if (!isEditMode || !editBaseline) {
+      return true;
+    }
+    const current: FormularioEditBaseline = {
+      formValues,
+      fotos,
+      gps: gps
+        ? {
+            latitud: gps.latitud,
+            longitud: gps.longitud,
+            precision: gps.precision,
+          }
+        : null,
+      modoCoordenadas,
+    };
+    return hasFormularioEditChanges(editBaseline, current);
+  }, [
+    editBaseline,
+    formValues,
+    fotos,
+    gps,
+    isEditMode,
+    modoCoordenadas,
+  ]);
+
+  const puedeEnviarFormulario = !isEditMode || hasEditChanges;
 
   const hayContenidoDiligenciado = useMemo(
     () =>
@@ -333,6 +379,7 @@ export const FormularioPage = () => {
             </p>
             <h1 className="text-3xl font-semibold">Formulario de visita</h1>
             <p className="text-sm text-slate-600">
+              {isEditMode ? "Editando formulario existente · " : null}
               Sesión: {authUsername ?? "—"} · Red:{" "}
               {isOnline ? "online" : "offline"}
             </p>
@@ -504,13 +551,24 @@ export const FormularioPage = () => {
           ))}
 
           <div className="sticky bottom-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg backdrop-blur">
+            {isEditMode && !hasEditChanges ? (
+              <p className="text-center text-xs text-slate-500">
+                No hay cambios para actualizar.
+              </p>
+            ) : null}
             <Button
               type="button"
-              disabled={enviando}
-              className="bg-teal-700 text-white hover:bg-teal-800"
+              disabled={enviando || !puedeEnviarFormulario}
+              className="bg-teal-700 text-white hover:bg-teal-800 disabled:opacity-50"
               onClick={() => void handleSubmit(onValid, onInvalid)()}
             >
-              {enviando ? "Guardando…" : "Guardar / enviar"}
+              {enviando
+                ? isEditMode
+                  ? "Actualizando…"
+                  : "Guardando…"
+                : isEditMode
+                  ? "Actualizar"
+                  : "Guardar / enviar"}
             </Button>
           </div>
         </form>

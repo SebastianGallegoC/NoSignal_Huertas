@@ -2,6 +2,7 @@ import { act, type ChangeEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi, afterEach } from "vitest";
 
+import { FORM_PHOTO_LIMIT_MESSAGE } from "@/lib/formPhotoLimits";
 import type { FotoForm } from "@/services/db";
 import { usePhotoCapture } from "@/pages/formulario/usePhotoCapture";
 
@@ -12,25 +13,39 @@ const compressionMocks = vi.hoisted(() => ({
 
 const cameraMocks = vi.hoisted(() => {
   let onCapturedFile: ((file: File) => Promise<void>) | null = null;
+  let canCapture: (() => boolean) | undefined;
+  let onCaptureBlocked: (() => void) | undefined;
   return {
-    useCameraCapture: vi.fn(({ onCapturedFile: handler }) => {
-      onCapturedFile = handler;
-      return {
-        cameraOpen: false,
-        captureFlash: false,
-        captureBadge: null,
-        cameraVideoRef: { current: null },
-        openCamera: vi.fn(),
-        stopCamera: vi.fn(),
-        captureFromCamera: vi.fn(async () => {
-          if (onCapturedFile) {
-            await onCapturedFile(
-              new File(["x"], "camera.jpg", { type: "image/jpeg" }),
-            );
-          }
-        }),
-      };
-    }),
+    useCameraCapture: vi.fn(
+      ({
+        onCapturedFile: handler,
+        canCapture: canCaptureArg,
+        onCaptureBlocked: onBlocked,
+      }) => {
+        onCapturedFile = handler;
+        canCapture = canCaptureArg;
+        onCaptureBlocked = onBlocked;
+        return {
+          cameraOpen: false,
+          captureFlash: false,
+          captureBadge: null,
+          cameraVideoRef: { current: null },
+          openCamera: vi.fn(),
+          stopCamera: vi.fn(),
+          captureFromCamera: vi.fn(async () => {
+            if (canCapture && !canCapture()) {
+              onCaptureBlocked?.();
+              return;
+            }
+            if (onCapturedFile) {
+              await onCapturedFile(
+                new File(["x"], "camera.jpg", { type: "image/jpeg" }),
+              );
+            }
+          }),
+        };
+      },
+    ),
     triggerCapture: async (file: File) => {
       if (onCapturedFile) {
         await onCapturedFile(file);
@@ -181,6 +196,48 @@ describe("usePhotoCapture", () => {
 
     expect(compressionMocks.compressImageFile).toHaveBeenCalledTimes(1);
     expect(setFotos).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
+
+  it("no agrega fotos desde cámara al alcanzar el límite de 15", async () => {
+    const setBanner = vi.fn();
+    const setFotos = vi.fn();
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    let handlers: HookHandlers | null = null;
+
+    const fotosMax: FotoForm[] = Array.from({ length: 15 }, (_, i) => ({
+      nombre_archivo: `f${i}.jpg`,
+      data: "data:image/jpeg;base64,AA==",
+      visita: 1 as const,
+    }));
+
+    await act(async () => {
+      root.render(
+        <Harness
+          fotos={fotosMax}
+          visitaFotoSeleccionada={1}
+          setFotos={setFotos}
+          setBanner={setBanner}
+          onReady={(h) => {
+            handlers = h;
+          }}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await handlers?.captureFromCamera();
+    });
+
+    expect(setBanner).toHaveBeenCalledWith(FORM_PHOTO_LIMIT_MESSAGE);
+    expect(compressionMocks.compressImageFile).not.toHaveBeenCalled();
+    expect(setFotos).not.toHaveBeenCalled();
 
     act(() => {
       root.unmount();

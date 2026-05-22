@@ -1,7 +1,9 @@
-import type { ChangeEvent, Ref, RefObject } from "react";
+import { useState, type ChangeEvent, type Ref, type RefObject } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { ImagePreview } from "@/components/form/ImagePreviewModal";
+import { RemoveFotoConfirmModal } from "@/components/form/RemoveFotoConfirmModal";
+import { isAtFormPhotoLimit, MAX_FORM_PHOTOS } from "@/lib/formPhotoLimits";
 import type { FotoForm, VisitaNumero } from "@/services/db";
 
 const visitaLabel = (v?: VisitaNumero) => (v ? `Visita ${v}` : "Sin visita");
@@ -21,6 +23,8 @@ type Props = {
   onFotosChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onQuitarFoto: (index: number) => void;
   onPreviewFoto: (image: ImagePreview) => void;
+  /** Aviso visible sobre la vista de cámara (p. ej. límite de 15 fotos). */
+  cameraNotice?: string | null;
 };
 
 export const FormularioFotosSection = ({
@@ -38,14 +42,27 @@ export const FormularioFotosSection = ({
   onFotosChange,
   onQuitarFoto,
   onPreviewFoto,
+  cameraNotice,
 }: Props) => {
+  const atPhotoLimit = isAtFormPhotoLimit(fotos.length);
+  const [fotoIndexToRemove, setFotoIndexToRemove] = useState<number | null>(null);
+  const fotoPendingRemove =
+    fotoIndexToRemove != null ? fotos[fotoIndexToRemove] : undefined;
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-slate-900">Fotografías (0 a 15)</h2>
+      <h2 className="text-sm font-semibold text-slate-900">
+        Fotografías (0 a {MAX_FORM_PHOTOS})
+      </h2>
       <p className="text-xs text-slate-500">
         Podés seleccionar archivos o capturar desde la app.
       </p>
-      <p className="mt-1 text-xs text-slate-600">Cargadas: {fotos.length}</p>
+      <p className="mt-1 text-xs text-slate-600">
+        Cargadas: {fotos.length}/{MAX_FORM_PHOTOS}
+        {atPhotoLimit ? (
+          <span className="ml-2 font-medium text-amber-700">— límite alcanzado</span>
+        ) : null}
+      </p>
       <label className="mt-3 block text-sm font-medium text-slate-800">
         Relacionar fotos con visita
         <select
@@ -116,8 +133,20 @@ export const FormularioFotosSection = ({
           >
             Foto capturada
           </div>
+          {cameraNotice ? (
+            <div
+              role="alert"
+              className="absolute inset-x-3 top-3 z-10 rounded-xl border border-amber-300/80 bg-amber-50/95 px-3 py-2 text-center text-sm font-medium text-amber-950 shadow-lg"
+            >
+              {cameraNotice}
+            </div>
+          ) : null}
           <div className="absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 sm:flex-row sm:justify-end">
-            <Button type="button" onClick={onCaptureFromCamera}>
+            <Button
+              type="button"
+              onClick={onCaptureFromCamera}
+              disabled={atPhotoLimit}
+            >
               Tomar foto
             </Button>
             <Button type="button" variant="outline" onClick={onStopCamera}>
@@ -157,7 +186,7 @@ export const FormularioFotosSection = ({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => onQuitarFoto(index)}
+                onClick={() => setFotoIndexToRemove(index)}
               >
                 Quitar
               </Button>
@@ -167,6 +196,18 @@ export const FormularioFotosSection = ({
       ) : (
         <p className="mt-2 text-sm text-slate-500">Aún no hay fotos cargadas.</p>
       )}
+      <RemoveFotoConfirmModal
+        open={fotoIndexToRemove != null}
+        nombreArchivo={fotoPendingRemove?.nombre_archivo ?? ""}
+        visita={fotoPendingRemove?.visita}
+        onCancel={() => setFotoIndexToRemove(null)}
+        onConfirm={() => {
+          if (fotoIndexToRemove != null) {
+            onQuitarFoto(fotoIndexToRemove);
+          }
+          setFotoIndexToRemove(null);
+        }}
+      />
     </div>
   );
 };

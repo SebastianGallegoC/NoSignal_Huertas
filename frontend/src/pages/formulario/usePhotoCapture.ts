@@ -2,6 +2,11 @@ import { useCallback } from 'react';
 import type { ChangeEvent, MutableRefObject } from 'react';
 
 import { useCameraCapture } from '@/hooks/useCameraCapture';
+import {
+  FORM_PHOTO_LIMIT_MESSAGE,
+  isAtFormPhotoLimit,
+  MAX_FORM_PHOTOS,
+} from '@/lib/formPhotoLimits';
 import { compressImageFile, fileToDataUrl } from '@/services/imageCompression';
 import type { VisitaNumero } from '@/lib/visitaNumero';
 import type { FotoForm } from '@/services/db';
@@ -36,11 +41,16 @@ export const usePhotoCapture = ({
       if (!files.length) {
         return;
       }
+      if (isAtFormPhotoLimit(fotos.length)) {
+        setBanner(FORM_PHOTO_LIMIT_MESSAGE);
+        return;
+      }
       setBanner(null);
       const combined = [...fotos];
+      let limitReached = false;
       for (const file of files) {
-        if (combined.length >= 15) {
-          setBanner('Máximo 15 fotos. Se ignoraron archivos adicionales.');
+        if (combined.length >= MAX_FORM_PHOTOS) {
+          limitReached = true;
           break;
         }
         try {
@@ -63,6 +73,9 @@ export const usePhotoCapture = ({
             'No se pudo procesar una de las imágenes. Probá con otra foto.',
           );
         }
+      }
+      if (limitReached) {
+        setBanner(FORM_PHOTO_LIMIT_MESSAGE);
       }
       setFotos(combined);
     },
@@ -99,7 +112,19 @@ export const usePhotoCapture = ({
       await processIncomingFiles([file], visitaFotoSeleccionada, false);
     },
     setBanner,
+    canCapture: () => !isAtFormPhotoLimit(fotos.length),
+    onCaptureBlocked: () => setBanner(FORM_PHOTO_LIMIT_MESSAGE),
   });
+
+  const openCameraWithLimit = useCallback(() => {
+    if (isAtFormPhotoLimit(fotos.length)) {
+      setBanner(FORM_PHOTO_LIMIT_MESSAGE);
+      openCamera();
+      return;
+    }
+    setBanner(null);
+    openCamera();
+  }, [fotos.length, openCamera, setBanner]);
 
   const quitarFoto = useCallback(
     (index: number) => {
@@ -113,7 +138,7 @@ export const usePhotoCapture = ({
     captureFlash,
     captureBadge,
     cameraVideoRef,
-    openCamera,
+    openCamera: openCameraWithLimit,
     stopCamera,
     captureFromCamera,
     onFotosChange,

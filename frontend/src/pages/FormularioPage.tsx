@@ -459,6 +459,7 @@ export const FormularioPage = () => {
             onFotosChange={(e) => void onFotosChange(e)}
             onQuitarFoto={quitarFoto}
             onPreviewFoto={setPreviewFoto}
+            cameraNotice={cameraOpen ? banner : null}
           />
 
           <ImagePreviewModal

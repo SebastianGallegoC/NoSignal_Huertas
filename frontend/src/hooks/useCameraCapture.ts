@@ -4,6 +4,9 @@ import type { MutableRefObject } from "react";
 type Args = {
   onCapturedFile: (file: File) => Promise<void>;
   setBanner: (message: string | null) => void;
+  /** Si devuelve false, no se captura ni se muestra animación de éxito. */
+  canCapture?: () => boolean;
+  onCaptureBlocked?: () => void;
 };
 
 type UseCameraCaptureResult = {
@@ -19,6 +22,8 @@ type UseCameraCaptureResult = {
 export const useCameraCapture = ({
   onCapturedFile,
   setBanner,
+  canCapture,
+  onCaptureBlocked,
 }: Args): UseCameraCaptureResult => {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [captureFlash, setCaptureFlash] = useState(false);
@@ -174,6 +179,10 @@ export const useCameraCapture = ({
   };
 
   const captureFromCamera = useCallback(async () => {
+    if (canCapture && !canCapture()) {
+      onCaptureBlocked?.();
+      return;
+    }
     const video = cameraVideoRef.current;
     if (!video) {
       return;
@@ -238,11 +247,15 @@ export const useCameraCapture = ({
       setBanner("No se pudo generar la imagen capturada.");
       return;
     }
+    if (canCapture && !canCapture()) {
+      onCaptureBlocked?.();
+      return;
+    }
     const fileName = `captura_${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`;
     const file = new File([blob], fileName, { type: "image/jpeg" });
     triggerCaptureFeedback();
     await onCapturedFile(file);
-  }, [onCapturedFile, setBanner]);
+  }, [canCapture, onCaptureBlocked, onCapturedFile, setBanner]);
 
   useEffect(() => {
     return () => {

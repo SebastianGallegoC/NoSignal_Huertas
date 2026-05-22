@@ -94,6 +94,8 @@ const SearchableSelectInner = ({
   const [dropUp, setDropUp] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const inputElRef = useRef<HTMLInputElement | null>(null);
+  /** Tras elegir opción: recibe el foco para cerrar teclado sin saltar al siguiente campo. */
+  const focusSentinelRef = useRef<HTMLDivElement>(null);
   /** Evita que onBlur revierta la opción recién elegida (típico en táctil). */
   const skipBlurCommitRef = useRef(false);
   const fieldValue = String(binding.value ?? '');
@@ -110,7 +112,7 @@ const SearchableSelectInner = ({
   };
 
   const dismissKeyboard = () => {
-    inputElRef.current?.blur();
+    focusSentinelRef.current?.focus({ preventScroll: true });
   };
 
   const applyOption = (option: SelectOption) => {
@@ -119,8 +121,8 @@ const SearchableSelectInner = ({
     binding.onChange(option.value);
     setText(nextLabel);
     setOpen(false);
+    dismissKeyboard();
     window.setTimeout(() => {
-      dismissKeyboard();
       skipBlurCommitRef.current = false;
     }, 0);
   };
@@ -173,6 +175,12 @@ const SearchableSelectInner = ({
         ref={anchorRef}
         className={`relative mt-1 ${open ? "z-[5000]" : "z-0"}`}
       >
+        <div
+          ref={focusSentinelRef}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="pointer-events-none absolute h-px w-px overflow-hidden opacity-0"
+        />
         <input
           ref={assignInputRef}
           name={binding.name}

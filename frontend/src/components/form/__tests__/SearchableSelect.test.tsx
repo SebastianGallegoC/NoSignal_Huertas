@@ -89,4 +89,52 @@ describe("SearchableSelect", () => {
     });
     container.remove();
   });
+
+  it("no enfoca el siguiente campo del formulario al elegir una opción", async () => {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <form>
+          <SelectHarness />
+          <input data-testid="siguiente" />
+        </form>,
+      );
+    });
+
+    const input = container.querySelector(
+      'input[role="combobox"]',
+    ) as HTMLInputElement;
+    const next = container.querySelector(
+      '[data-testid="siguiente"]',
+    ) as HTMLInputElement;
+
+    await act(async () => {
+      input.focus();
+      input.dispatchEvent(new Event("focus", { bubbles: true }));
+    });
+
+    const option = Array.from(
+      container.querySelectorAll('li[role="option"]'),
+    ).find((li) => li.textContent?.includes("Voluntaria")) as HTMLLIElement;
+
+    await act(async () => {
+      option.dispatchEvent(
+        new MouseEvent("mousedown", { bubbles: true, cancelable: true }),
+      );
+    });
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 10));
+    });
+
+    expect(document.activeElement).not.toBe(next);
+
+    act(() => {
+      root.unmount();
+    });
+    container.remove();
+  });
 });

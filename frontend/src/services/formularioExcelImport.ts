@@ -286,6 +286,26 @@ export type MatrizHeaderColumnMap = {
   excelColByMatrizIndex: number[];
 };
 
+/** Índices de MATRIZ_F_PSA_HEADERS cuya columna puede faltar (p. ej. matriz de 70 cols). */
+const OPTIONAL_MATRIZ_HEADER_INDICES = new Set<number>([28]);
+
+/**
+ * Etiquetas alternativas en Excel reales (p. ej. «MATRIZ ACTUALIZADA» sin MSNM).
+ * Clave = encabezado oficial normalizado.
+ */
+const MATRIZ_HEADER_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  [normalizeMatrizHeaderLabel("DISTANCIA DE INFRAESTRUCTURA ADECUADA (M)")]: [
+    normalizeMatrizHeaderLabel(
+      "DISTANCIA DE INFRAESTRUCTURA ADECUADA APROXIMADA",
+    ),
+  ],
+  [normalizeMatrizHeaderLabel("DISTANCIA DE REDES ELECTRICAS ADECUADA")]: [
+    normalizeMatrizHeaderLabel(
+      "DISTANCIA APROXIMADA DE REDES ELECTRICAS ADECUADA",
+    ),
+  ],
+};
+
 function findExcelColForExpected(
   normExpected: string,
   excelByNorm: Map<string, number>,
@@ -293,6 +313,15 @@ function findExcelColForExpected(
   const direct = excelByNorm.get(normExpected);
   if (direct != null) {
     return direct;
+  }
+  const aliases = MATRIZ_HEADER_ALIASES[normExpected];
+  if (aliases) {
+    for (const alt of aliases) {
+      const col = excelByNorm.get(alt);
+      if (col != null) {
+        return col;
+      }
+    }
   }
   if (normExpected.length <= 3) {
     return null;
@@ -352,12 +381,11 @@ function buildHeaderColumnMap(
 
   MATRIZ_F_PSA_HEADERS.forEach((expected, i) => {
     const normExpected = normalizeMatrizHeaderLabel(expected);
-    let col = findExcelColForExpected(normExpected, excelByNorm);
-    if (col == null && i < MATRIZ_COLUMN_COUNT) {
-      col = i + 1;
-    }
+    const col = findExcelColForExpected(normExpected, excelByNorm);
     if (col == null) {
-      missing.push(expected);
+      if (!OPTIONAL_MATRIZ_HEADER_INDICES.has(i)) {
+        missing.push(expected);
+      }
       excelColByMatrizIndex.push(-1);
     } else {
       excelColByMatrizIndex.push(col);

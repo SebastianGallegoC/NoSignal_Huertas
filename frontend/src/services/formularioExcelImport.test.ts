@@ -170,40 +170,6 @@ describe("parsePlantillaWorkbook", () => {
     );
   });
 
-  it("importa aunque los textos de la fila 7 no coincidan con la plantilla oficial", async () => {
-    const wb = new Workbook();
-    const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
-    ws.getCell(7, 1).value = "Encabezado arbitrario";
-    ws.getCell(7, 2).value = "Otro título";
-    ws.getCell(7, 27).value = "LATITUD";
-    ws.getCell(7, 28).value = "LONGITUD";
-
-    const row = new Array<string | number | null>(MATRIZ_COLUMN_COUNT).fill(null);
-    row[7] = "María Pérez";
-    row[27] = "-74.08175";
-    row[26] = "4.60971";
-    for (let c = 0; c < MATRIZ_COLUMN_COUNT; c++) {
-      const v = row[c];
-      if (v != null && v !== "") {
-        ws.getCell(8, c + 1).value = v;
-      }
-    }
-
-    const buf = await wb.xlsx.writeBuffer();
-    const u8 = new Uint8Array(buf as ArrayBuffer);
-    const buffer = u8.buffer.slice(
-      u8.byteOffset,
-      u8.byteOffset + u8.byteLength,
-    );
-
-    const { ok, errors } = await parsePlantillaWorkbook(buffer);
-    expect(errors).toHaveLength(0);
-    expect(ok).toHaveLength(1);
-    expect(ok[0].datos_formulario.nombres_apellidos_beneficiario).toBe(
-      "María Pérez",
-    );
-  });
-
   it("analyzeImportRow marca fecha inválida y coordenadas válidas", () => {
     const row = new Array<string | number | null>(MATRIZ_COLUMN_COUNT).fill(null);
     row[4] = "no-es-una-fecha";
@@ -465,6 +431,116 @@ describe("parsePlantillaWorkbook", () => {
     expect(errors).toHaveLength(0);
     expect(ok[0].datos_formulario).not.toHaveProperty("x_grados");
     expect(ok[0].datos_formulario).not.toHaveProperty("y_minutos");
+  });
+
+  it("importa matriz actualizada de 70 columnas (LON/LAT invertidas, sin MSNM)", async () => {
+    const wb = new Workbook();
+    const ws = wb.addWorksheet(MATRIZ_SHEET_NAME);
+    const headers70 = [
+      "ID",
+      "ENTIDAD APORTANTE",
+      "TIPO DE ORGANIZACIÓN DE LA ENTIDAD APORTANTE",
+      "NOMBRE DE ACTIVIDAD",
+      "FECHA INICIO  (DD/MM/AÑO)",
+      "FECHA FIN  (DD/MM/AÑO)",
+      "TIPO DE PROYECTO O TIPO DE FINANCIACIÓN",
+      "NOMBRES Y APELLIDOS BENEFICIARIO",
+      "EDAD",
+      "HOMBRE/MUJER",
+      "TIPO DOCUMENTO",
+      "NÚMERO DOCUMENTO",
+      "N° TELEFONICO",
+      "N° USUARIO CENS",
+      "ESTADO FACTURA",
+      "DEPARTAMENTO",
+      "MUNICIPIO",
+      "VEREDA",
+      "DIRECCIÓN",
+      "ZONA (URBANA-RURAL)",
+      "ESTRATO",
+      "SISBEN",
+      "NIVEL DE INGRESO PROMEDIO DE LA FAMILIA",
+      "NOMBRE DEL PREDIO",
+      "RESIDENCIA",
+      "TENENCIA DEL PREDIO",
+      "LONGITUD",
+      "LATITUD",
+      "N° PERSONAS DEL NÚCLEO FAMILIAR",
+      "NÚMERO DE MENORES DE EDAD",
+      "NÚMERO DE ADULTOS MAYORES",
+      "MUJER CABEZA DE HOGAR",
+      "PERSONA CON DISCAPACIDAD",
+      "OCUPACION PRINCIPAL",
+      "PERFIL SOCIAL PRIORIZADO",
+      "ÁREA HUERTA M2",
+      "TIPO ESPACIO HUERTA",
+      "ACCESO A AGUA",
+      "TIPO RIEGO",
+      "EXPOSICION SOLAR ADECUADA",
+      "SUELO O RECIPIENTES",
+      "DISPONIBILIDAD DE MANTENIMIENTO",
+      "ÁREA DE ARBOL DISPONIBLES (SI/NO)",
+      "TIPO SUELO",
+      "DISTANCIA DE INFRAESTRUCTURA ADECUADA APROXIMADA",
+      "DISTANCIA APROXIMADA DE REDES ELECTRICAS ADECUADA",
+      "INTERES AUTOCONSUMO",
+      "INTERES COMERCIALIZACIÓN",
+      "ASINTENCIA A CAPACITACIONES",
+      "PERMITE VISITAS",
+      "COMPROMISO CUIDADO DE ARBOL",
+      "FIRMA ACUERDO",
+      "AUTORIZA TRATAMIENTO DE DATOS",
+      "AUTORIZA REGISTROS FOTOGRAFICOS",
+      "CUMPLE CRITERIOS DE HUERTA",
+      "CUMPLE CRITERIOS DE ARBOL",
+      "OBSERVACIONES",
+      "FECHA VISITA 1",
+      "FECHA VISITA 2",
+      "FECHA VISITA 3",
+      "ESTADO HUERTA FINAL",
+      "ESTADO ARBOL FINAL",
+      "PRODUCCIÓN KG",
+      "SATISFACION 1-5",
+      "ESPECIES DE FLORA Y FAUNA",
+      "ECOSISTEMA ESTRATÉGICO",
+      "TIPO DE COBERTURA",
+      "CERCANIA RONDA HÍDRICA",
+      "SUPERFICIE TOTAL INTERVENIDA M2",
+      "TOTAL DE ESECIES O SEMILLAS SEMBRADAS",
+    ];
+    headers70.forEach((h, i) => {
+      ws.getCell(7, i + 1).value = h;
+    });
+    ws.getCell(8, 8).value = "Benef 70 cols";
+    ws.getCell(8, 27).value = "-74.08175";
+    ws.getCell(8, 28).value = "4.60971";
+    ws.getCell(8, 29).value = "4";
+    ws.getCell(8, 45).value = "40 M";
+    ws.getCell(8, 46).value = "25";
+
+    const buf = await wb.xlsx.writeBuffer();
+    const u8 = new Uint8Array(buf as ArrayBuffer);
+    const buffer = u8.buffer.slice(
+      u8.byteOffset,
+      u8.byteOffset + u8.byteLength,
+    );
+
+    const { ok, errors } = await parsePlantillaWorkbook(buffer);
+    expect(errors).toHaveLength(0);
+    expect(ok).toHaveLength(1);
+    expect(ok[0].datos_formulario.nombres_apellidos_beneficiario).toBe(
+      "Benef 70 cols",
+    );
+    expect(ok[0].gps.latitud).toBeCloseTo(4.60971, 5);
+    expect(ok[0].gps.longitud).toBeCloseTo(-74.08175, 5);
+    expect(ok[0].datos_formulario.metros_sobre_nivel_mar).toBe("");
+    expect(ok[0].datos_formulario.numero_personas_nucleo_familiar).toBe("4");
+    expect(ok[0].datos_formulario.distancia_infraestructura_adecuada).toBe(
+      "40",
+    );
+    expect(ok[0].datos_formulario.distancia_redes_electricas_adecuada).toBe(
+      "25",
+    );
   });
 
   it("normaliza «Distancia Infraestructura Adecuada» con sufijo M/m en Excel (columna ~46)", async () => {

@@ -9,7 +9,7 @@ import type { OfflineForm } from "@/services/db";
 import type { FormFieldKey } from "@/types/formFields";
 
 /** Número de columnas de datos en la plantilla F-PSA-08 (fila 7 = encabezados). */
-export const MATRIZ_COLUMN_COUNT = 71;
+export const MATRIZ_COLUMN_COUNT = 72;
 
 /** Hoja y columnas alineadas con `PLANTILLA.xlsx` → pestaña F-PSA-08, fila 7. */
 export const MATRIZ_SHEET_NAME = "F-PSA-08";
@@ -41,8 +41,9 @@ export const MATRIZ_F_PSA_HEADERS: readonly string[] = [
   "NOMBRE DEL PREDIO",
   "RESIDENCIA",
   "TENENCIA DEL PREDIO",
-  "LONGITUD",
   "LATITUD",
+  "LONGITUD",
+  "METROS SOBRE EL NIVEL DEL MAR",
   "N° PERSONAS DEL NÚCLEO FAMILAR",
   "NÚMERO DE MENORES DE EDAD",
   "NÚMERO DE ADULTOS MAYORES",
@@ -59,8 +60,8 @@ export const MATRIZ_F_PSA_HEADERS: readonly string[] = [
   "DISPONIBILIDAD DE MANTENIMIENTO",
   "ÁREA DE ARBOL DISPONIBLES (SI/NO)",
   "TIPO SUELO",
-  "DISTANCIA DE INFRAESTRUCTURA ADECUADA APROXIMADA",
-  "DISTANCIA APROXIMADA DE REDES ELECTRICAS ADECUADA",
+  "DISTANCIA DE INFRAESTRUCTURA ADECUADA",
+  "DISTANCIA DE REDES ELECTRICAS ADECUADA",
   "INTERES AUTOCONSUMO",
   "INTERES COMERCIALIZACIÓN",
   "ASINTENCIA A CAPACITACIONES",
@@ -145,7 +146,7 @@ function decimalCoordForMatrizExport(
   return Number.isFinite(gpsVal) ? String(gpsVal) : "";
 }
 
-/** Origen de cada celda de la fila 8 (71 columnas), alineado con la matriz F-PSA-08. */
+/** Origen de cada celda de la fila 8 (72 columnas), alineado con la matriz F-PSA-08. */
 export type MatrizRowCellSource =
   | { kind: "id_formulario" }
   | { kind: "field"; key: FormFieldKey }
@@ -180,8 +181,9 @@ export const MATRIZ_ROW_CELL_SOURCES: readonly MatrizRowCellSource[] = [
   { kind: "field", key: "nombre_predio" },
   { kind: "field", key: "residencia" },
   { kind: "field", key: "tenencia_predio" },
-  { kind: "lon" },
   { kind: "lat" },
+  { kind: "lon" },
+  { kind: "field", key: "metros_sobre_nivel_mar" },
   { kind: "field", key: "numero_personas_nucleo_familiar" },
   { kind: "field", key: "numero_menores_edad" },
   { kind: "field", key: "numero_adultos_mayores" },
@@ -258,7 +260,7 @@ export function formatFechaMatriz(raw: string): string {
   return `${day}/${month}/${year}`;
 }
 
-/** Una fila de datos (columnas 1–71) para la matriz F-PSA-08. */
+/** Una fila de datos (columnas 1–72) para la matriz F-PSA-08. */
 export function buildMatrizCaracterizacionRow(form: OfflineForm): string[] {
   const d = form.datos_formulario as Record<string, unknown>;
   const g = (k: FormFieldKey) => strFromDatos(d, k);

@@ -307,6 +307,12 @@ const MATRIZ_HEADER_ALIASES: Readonly<Record<string, readonly string[]>> = {
   [normalizeMatrizHeaderLabel("N° PERSONAS DEL NÚCLEO FAMILAR")]: [
     normalizeMatrizHeaderLabel("Nº PERSONAS DEL NÚCLEO FAMILIAR"),
     normalizeMatrizHeaderLabel("N° PERSONAS DEL NÚCLEO FAMILIAR"),
+    normalizeMatrizHeaderLabel("N° PERSONAS DEL NÚCLEO FAMILIAR"),
+    normalizeMatrizHeaderLabel("Nº PERSONAS DEL NÚCLEO FAMILIAR"),
+  ],
+  [normalizeMatrizHeaderLabel("N° TELEFONICO")]: [
+    normalizeMatrizHeaderLabel("Nº TELEFONICO"),
+    normalizeMatrizHeaderLabel("N° TELEFONICO"),
   ],
 };
 
@@ -766,7 +772,7 @@ export async function previewPlantillaWorkbook(
 
 /**
  * Lee un .xlsx alineado a la plantilla: hoja F-PSA-08 (o la primera hoja), fila 7 reservada a
- * encabezados (no se validan los textos), datos desde la fila 8 por posición de columna (1–71).
+ * encabezados (no se validan los textos), datos desde la fila 8 según mapa de encabezados (1–72).
  */
 export async function parsePlantillaWorkbook(
   buffer: ArrayBuffer,

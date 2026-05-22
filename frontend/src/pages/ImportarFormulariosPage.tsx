@@ -211,14 +211,14 @@ export const ImportarFormulariosPage = () => {
             </a>
             : hoja <strong>F-PSA-08</strong>, fila 7 reservada a títulos (no hace
             falta que coincidan con la plantilla), datos desde la fila 8 en el
-            mismo orden de columnas (1–71) que la plantilla.
+            mismo orden de columnas (1–72) que la plantilla.
           </p>
           <ul className="mt-3 list-inside list-disc text-sm text-slate-600">
             <li>
               Solo se cargan los <strong>campos del formulario</strong> (no hay
               fotos). Coordenadas en <strong>grados decimales</strong>: columnas{" "}
               <strong>LATITUD</strong>, <strong>LONGITUD</strong> y{" "}
-              <strong>METROS SOBRE EL NIVEL DEL MAR</strong> (plantilla de 71
+              <strong>METROS SOBRE EL NIVEL DEL MAR</strong> (plantilla de 72
               columnas; la versión antigua con GMS no es compatible).
             </li>
             <li>

@@ -35,15 +35,17 @@ const minimalForm = (): OfflineForm => ({
 });
 
 describe("matrizCaracterizacionExport — encabezados y definición de fila", () => {
-  it("define 71 encabezados y 71 fuentes de celda", () => {
+  it("define 72 encabezados y 72 fuentes de celda", () => {
     expect(MATRIZ_F_PSA_HEADERS.length).toBe(MATRIZ_COLUMN_COUNT);
     expect(MATRIZ_ROW_CELL_SOURCES.length).toBe(MATRIZ_COLUMN_COUNT);
     expect(MATRIZ_F_PSA_HEADERS[0]).toBe("ID");
     expect(MATRIZ_F_PSA_HEADERS[7]).toContain("BENEFICIARIO");
-    expect(MATRIZ_F_PSA_HEADERS[44]).toBe(
-      "DISTANCIA DE INFRAESTRUCTURA ADECUADA APROXIMADA",
+    expect(MATRIZ_F_PSA_HEADERS[28]).toBe("METROS SOBRE EL NIVEL DEL MAR");
+    expect(MATRIZ_F_PSA_HEADERS[29]).toBe("N° PERSONAS DEL NÚCLEO FAMILAR");
+    expect(MATRIZ_F_PSA_HEADERS[45]).toBe(
+      "DISTANCIA DE INFRAESTRUCTURA ADECUADA",
     );
-    expect(MATRIZ_F_PSA_HEADERS[60]).toBe("FECHA VISITA 4");
+    expect(MATRIZ_F_PSA_HEADERS[61]).toBe("FECHA VISITA 4");
   });
 
   it("cada campo del formulario (salvo longitud/latitud decimales) aparece en la definición de exportación", () => {
@@ -54,17 +56,13 @@ describe("matrizCaracterizacionExport — encabezados y definición de fila", ()
       }
     }
     for (const k of REQUIRED_FIELDS) {
-      if (
-        k === "longitud" ||
-        k === "latitud" ||
-        k === "metros_sobre_nivel_mar"
-      ) {
+      if (k === "longitud" || k === "latitud") {
         expect(keysInSources.has(k)).toBe(false);
         continue;
       }
       expect(keysInSources.has(k), `falta en matriz: ${k}`).toBe(true);
     }
-    expect(keysInSources.size).toBe(REQUIRED_FIELDS.length - 3);
+    expect(keysInSources.size).toBe(REQUIRED_FIELDS.length - 2);
   });
 });
 
@@ -92,7 +90,7 @@ describe("formatFechaMatriz", () => {
 });
 
 describe("buildMatrizCaracterizacionRow", () => {
-  it("produce 71 celdas string y usa GPS si faltan longitud/latitud en datos", () => {
+  it("produce 72 celdas string y usa GPS si faltan longitud/latitud en datos", () => {
     const f = minimalForm();
     f.datos_formulario = {
       entidad_aportante: "Entidad X",
@@ -104,20 +102,22 @@ describe("buildMatrizCaracterizacionRow", () => {
     expect(row[0]).toBe("test-id");
     expect(row[1]).toBe("Entidad X");
     expect(row[7]).toBe("María López");
-    expect(row[26]).toContain("-72.25");
-    expect(row[27]).toContain("7.5");
+    expect(row[26]).toContain("7.5");
+    expect(row[27]).toContain("-72.25");
   });
 
-  it("exporta longitud y latitud en columnas 27–28", () => {
+  it("exporta latitud, longitud y MSNM en columnas 27–29", () => {
     const f = minimalForm();
     f.gps = { ...GPS_PLACEHOLDER_WHEN_NOT_CAPTURED };
     f.datos_formulario = {
       latitud: "4.60971",
       longitud: "-74.08175",
+      metros_sobre_nivel_mar: "2650",
     };
     const row = buildMatrizCaracterizacionRow(f);
-    expect(row[26]).toBe("-74.08175");
-    expect(row[27]).toBe("4.60971");
+    expect(row[26]).toBe("4.60971");
+    expect(row[27]).toBe("-74.08175");
+    expect(row[28]).toBe("2650");
   });
 
   it("deja vacías latitud/longitud cuando no hay GPS real ni decimales", () => {
@@ -135,7 +135,7 @@ describe("buildMatrizCaracterizacionRow", () => {
       distancia_infraestructura_adecuada: "40 M aprox",
     };
     const row = buildMatrizCaracterizacionRow(f);
-    expect(row[44]).toBe("40 M aprox");
+    expect(row[45]).toBe("40 M aprox");
   });
 
   it("exporta exposicion_solar_adecuada como texto libre", () => {
@@ -144,14 +144,14 @@ describe("buildMatrizCaracterizacionRow", () => {
       exposicion_solar_adecuada: "Mañana y tarde",
     };
     const row = buildMatrizCaracterizacionRow(f);
-    expect(row[39]).toBe("Mañana y tarde");
+    expect(row[40]).toBe("Mañana y tarde");
   });
 
-  it("formatea fecha_visita_4 en columna FECHA VISITA 4 (índice 60)", () => {
+  it("formatea fecha_visita_4 en columna FECHA VISITA 4 (índice 61)", () => {
     const f = minimalForm();
     f.datos_formulario = { fecha_visita_4: "2026-06-20" };
     const row = buildMatrizCaracterizacionRow(f);
-    expect(row[60]).toBe("20/06/2026");
+    expect(row[61]).toBe("20/06/2026");
   });
 
   it("formatea fecha_inicio YYYY-MM-DD en columna FECHA INICIO (índice 4)", () => {
@@ -181,8 +181,8 @@ describe("buildMatrizCaracterizacionRow", () => {
       latitud: "5.987654",
     };
     const row = buildMatrizCaracterizacionRow(f);
-    expect(row[26]).toBe("-74.123456");
-    expect(row[27]).toBe("5.987654");
+    expect(row[26]).toBe("5.987654");
+    expect(row[27]).toBe("-74.123456");
   });
 
   it("alinea cada columna con MATRIZ_ROW_CELL_SOURCES cuando los datos llevan prefijo único", () => {
@@ -334,7 +334,7 @@ describe("buildMatrizCaracterizacionWorkbook", () => {
     const wb2 = new Workbook();
     await wb2.xlsx.load(buf);
     const ws2 = wb2.getWorksheet(MATRIZ_SHEET_NAME);
-    expect(ws2!.getCell(8, 57).value).toBe("Nota fin");
+    expect(ws2!.getCell(8, 58).value).toBe("Nota fin");
   });
 });
 

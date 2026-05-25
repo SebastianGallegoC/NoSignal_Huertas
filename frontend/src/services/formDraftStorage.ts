@@ -75,6 +75,41 @@ export function saveFormDraft(username: string, draft: FormDraftV1): void {
   }
 }
 
+export function isEditFormDraft(draft: FormDraftV1 | null | undefined): boolean {
+  return (
+    draft != null &&
+    typeof draft.originalFechaHora === 'string' &&
+    draft.originalFechaHora.trim() !== ''
+  );
+}
+
+export type FormularioDraftNavigation = {
+  /** Entrada desde Inicio → «Completar formularios»: formulario nuevo vacío. */
+  freshForm?: boolean;
+  /** Entrada desde «Editar» en formularios diligenciados. */
+  fromEdit?: boolean;
+};
+
+/**
+ * Decide si cargar el borrador en localStorage al abrir /formulario.
+ * Los borradores de edición abandonados no deben aparecer en un formulario nuevo.
+ */
+export function resolveInitialFormDraft(
+  draft: FormDraftV1 | null,
+  nav: FormularioDraftNavigation | null | undefined,
+): FormDraftV1 | null {
+  if (nav?.freshForm) {
+    return null;
+  }
+  if (!draft) {
+    return null;
+  }
+  if (isEditFormDraft(draft) && !nav?.fromEdit) {
+    return null;
+  }
+  return draft;
+}
+
 export function clearFormDraft(username: string): void {
   try {
     localStorage.removeItem(storageKey(username));

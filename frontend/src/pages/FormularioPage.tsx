@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { Link, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import {
   FormEnvioResultModal,
@@ -28,7 +28,9 @@ import type { VisitaNumero } from "@/services/db";
 import {
   clearFormDraft,
   loadFormDraft,
+  resolveInitialFormDraft,
   shouldPersistFormDraft,
+  type FormularioDraftNavigation,
 } from "@/services/formDraftStorage";
 import { isNetworkLikeError, syncPendingForms } from "@/services/sync";
 import type { FotoForm } from "@/services/db";
@@ -45,11 +47,18 @@ export const FormularioPage = () => {
   const authUsername = useAuthStore((s) => s.username);
   const isOnline = useConnectivityStatus();
   const draftUserKey = authUsername ?? "";
+  const location = useLocation();
+  const draftNavigation = (location.state ?? null) as FormularioDraftNavigation | null;
+  const skipDraftPersistRef = useRef(false);
 
-  const loadedDraft = useMemo(
-    () => loadFormDraft(draftUserKey),
-    [draftUserKey],
-  );
+  const loadedDraft = useMemo(() => {
+    const raw = loadFormDraft(draftUserKey);
+    const resolved = resolveInitialFormDraft(raw, draftNavigation);
+    if (draftNavigation?.freshForm || (raw && resolved === null && raw.originalFechaHora)) {
+      clearFormDraft(draftUserKey);
+    }
+    return resolved;
+  }, [draftUserKey, draftNavigation?.freshForm, draftNavigation?.fromEdit]);
 
   const defaults = useMemo(() => {
     return Object.fromEntries(
@@ -202,6 +211,7 @@ export const FormularioPage = () => {
     gps,
     modoCoordenadas,
     getValues,
+    skipPersistRef: skipDraftPersistRef,
   });
 
   const refreshPendientes = useCallback(async () => {
@@ -247,6 +257,14 @@ export const FormularioPage = () => {
     restablecerFormularioAVacio();
     setModalLimpiarAbierto(false);
   }, [restablecerFormularioAVacio]);
+
+  const salirDelFormulario = useCallback(() => {
+    if (isEditMode) {
+      skipDraftPersistRef.current = true;
+      clearFormDraft(draftUserKey);
+    }
+    navigate("/inicio");
+  }, [draftUserKey, isEditMode, navigate]);
 
   useEffect(() => {
     if (!modalLimpiarAbierto) {
@@ -391,15 +409,14 @@ export const FormularioPage = () => {
           </div>
           <div className="flex w-full min-w-0 flex-row items-center justify-between gap-2 sm:gap-6">
             <div className="flex min-w-0 flex-wrap gap-2">
-              <Link to="/inicio" className="inline-flex">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-slate-200"
-                >
-                  Regresar
-                </Button>
-              </Link>
+              <Button
+                type="button"
+                variant="outline"
+                className="border-slate-200"
+                onClick={salirDelFormulario}
+              >
+                Regresar
+              </Button>
               <Button
                 type="button"
                 onClick={() => void sincronizarAhora()}

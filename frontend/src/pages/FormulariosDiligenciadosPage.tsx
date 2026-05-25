@@ -718,7 +718,7 @@ export const FormulariosDiligenciadosPage = () => {
         gps,
       };
       saveFormDraft(authUsername ?? "", draft);
-      navigate("/formulario");
+      navigate("/formulario", { state: { fromEdit: true } });
     },
     [authUsername, detailPrecarga, detailSnapshot, navigate],
   );

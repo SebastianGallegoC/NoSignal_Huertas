@@ -63,6 +63,7 @@ export const InicioPage = () => {
         >
           <Link
             to="/formulario"
+            state={{ freshForm: true }}
             className="group block h-full rounded-xl outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring sm:rounded-2xl"
           >
             <Card className="h-full border-teal-100 bg-white/90 shadow-[0_18px_40px_-35px_rgba(15,118,110,0.6)] transition group-hover:-translate-y-0.5">

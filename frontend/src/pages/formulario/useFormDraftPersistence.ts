@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, type RefObject } from 'react';
 import type { UseFormGetValues } from 'react-hook-form';
 
 import { clearFormDraft, saveFormDraft, shouldPersistFormDraft } from '@/services/formDraftStorage';
@@ -17,6 +17,8 @@ type Args = {
   gps: GpsCoords;
   modoCoordenadas: 'automatico' | 'manual';
   getValues: UseFormGetValues<FormValues>;
+  /** Si es true, no guardar borrador (p. ej. al abandonar edición con Regresar). */
+  skipPersistRef?: RefObject<boolean>;
 };
 
 export const useFormDraftPersistence = ({
@@ -29,6 +31,7 @@ export const useFormDraftPersistence = ({
   gps,
   modoCoordenadas,
   getValues,
+  skipPersistRef,
 }: Args) => {
   const draftUserKeyRef = useRef(draftUserKey);
   draftUserKeyRef.current = draftUserKey;
@@ -46,6 +49,9 @@ export const useFormDraftPersistence = ({
   modoCoordenadasRef.current = modoCoordenadas;
 
   const flushDraftToStorage = useCallback(() => {
+    if (skipPersistRef?.current) {
+      return;
+    }
     const userKey = draftUserKeyRef.current;
     const values = getValues();
     const def = defaultsRef.current;
@@ -70,7 +76,7 @@ export const useFormDraftPersistence = ({
         ? { latitud: g.latitud, longitud: g.longitud, precision: g.precision }
         : null,
     });
-  }, [getValues]);
+  }, [getValues, skipPersistRef]);
 
   useEffect(() => {
     return () => {
